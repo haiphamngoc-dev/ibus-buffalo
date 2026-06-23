@@ -1,6 +1,13 @@
 [package]
-name = "daemon"
+name = "ibus-buffalo"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0.150"
+tokio = { version = "1.52", features = ["full"] }
+wayland-client = "0.31.14"
+x11 = "2.21.0"
+zbus = "5.16.0"
+buffalo-core = { path = "../core" }

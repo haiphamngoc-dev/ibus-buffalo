@@ -228,7 +228,7 @@ pub fn is_backspace_mode(im: i32) -> bool {
 /// Configuration for the IBus Buffalo input method.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Config {
-    /// Currently selected input method (e.g., "Telex 2", "VNI").
+    /// Currently selected input method (e.g., "Telex", "VNI", "English").
     pub input_method: String,
     /// Default typing/output mode.
     pub default_input_mode: i32,
@@ -236,6 +236,8 @@ pub struct Config {
     pub flags: u32,
     /// Mapping of window classes to specific input modes.
     pub input_mode_mapping: HashMap<String, i32>,
+    /// Stored active Vietnamese typing layout (Telex or VNI) used when toggling back from English mode.
+    pub vietnamese_layout: String,
 }
 
 impl Default for Config {
@@ -245,6 +247,7 @@ impl Default for Config {
             default_input_mode: 1, // PREEDIT_IM
             flags: ESTD_FLAGS,
             input_mode_mapping: HashMap::new(),
+            vietnamese_layout: "Telex".to_string(),
         }
     }
 }
@@ -627,7 +630,7 @@ impl IBusEngine {
 
         if prop_name == "mode_switch" {
             if config.input_method == "English" {
-                config.input_method = "Telex".to_string();
+                config.input_method = config.vietnamese_layout.clone();
             } else {
                 config.input_method = "English".to_string();
             }
@@ -635,10 +638,18 @@ impl IBusEngine {
         } else if prop_name.starts_with("InputMethod::") {
             let im = &prop_name["InputMethod::".len()..];
             config.input_method = im.to_string();
+            if im != "English" {
+                config.vietnamese_layout = im.to_string();
+            }
             let _ = save_config(&config);
         }
 
-        if let Some(im_def) = get_input_method(&config.input_method) {
+        let active_layout = if config.input_method == "English" {
+            &config.vietnamese_layout
+        } else {
+            &config.input_method
+        };
+        if let Some(im_def) = get_input_method(active_layout) {
             let mut engine = self.engine.lock().unwrap();
             *engine = Engine::new(im_def, config.flags);
         }
@@ -737,6 +748,11 @@ impl IBusEngine {
         }
 
         let _config = load_config();
+        if _config.input_method == "English" {
+            debug_println!("--> English mode active, bypassing");
+            self.commit_and_reset(signal_emitter, PREEDIT_IM).await;
+            return false;
+        }
         let input_mode = PREEDIT_IM;
         debug_println!(
             "--> handle_key: input_mode={}, config.input_method='{}'",
@@ -979,8 +995,13 @@ impl IBusFactory {
         println!("Creating engine for layout: {}", engine_name);
 
         let config = load_config();
-        let im_def = get_input_method(&config.input_method).ok_or_else(|| {
-            zbus::fdo::Error::Failed(format!("Input method {} not found", config.input_method))
+        let active_layout = if config.input_method == "English" {
+            &config.vietnamese_layout
+        } else {
+            &config.input_method
+        };
+        let im_def = get_input_method(active_layout).ok_or_else(|| {
+            zbus::fdo::Error::Failed(format!("Input method {} not found", active_layout))
         })?;
         let engine = Engine::new(im_def, config.flags);
         let ibus_engine = IBusEngine {

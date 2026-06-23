@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=IBus Buffalo Setup
+Comment=Setup tool for IBus Buffalo Vietnamese input method
+Exec=/usr/lib/ibus-buffalo/buffalo-ui
+Icon=ibus-buffalo
+Terminal=false
+Type=Application
+Categories=Settings;IBus;

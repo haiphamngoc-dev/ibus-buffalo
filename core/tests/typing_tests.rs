@@ -1,6 +1,6 @@
 // Integration tests for buffalo-core typing engine
 
-use buffalo_core::{get_input_method, Engine, VIETNAMESE_MODE, ESTD_FLAGS};
+use buffalo_core::{ESTD_FLAGS, Engine, VIETNAMESE_MODE, get_input_method};
 
 fn type_word(engine: &mut Engine, keystrokes: &str) -> String {
     engine.reset();

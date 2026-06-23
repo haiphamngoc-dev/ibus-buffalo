@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ~ IBus Buffalo - A Vietnamese Input Method Engine
+  ~ Copyright (C) 2026 Hai Pham Ngoc
+  ~
+  ~ This program is free software: you can redistribute it and/or modify
+  ~ it under the terms of the GNU General Public License as published by
+  ~ the Free Software Foundation, either version 3 of the License, or
+  ~ (at your option) any later version.
+  ~
+  ~ This program is distributed in the hope that it will be useful,
+  ~ but WITHOUT ANY WARRANTY; without even the implied warranty of
+  ~ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  ~ GNU General Public License for more details.
+  ~
+  ~ You should have received a copy of the GNU General Public License
+  ~ along with this program.  If not, see <http://www.gnu.org/licenses/>.
+  ~
+  -->
+
+<component>
+    <name>org.freedesktop.IBus.buffalo</name>
+    <description>Vietnamese input engine for IBus</description>
+    <exec>/usr/lib/ibus-buffalo/ibus-buffalo --ibus</exec>
+    <version>0.1.0</version>
+    <author>Hai Pham Ngoc</author>
+    <license>GPLv3</license>
+    <homepage>https://github.com/haiphamngoc-dev/ibus-buffalo</homepage>
+    <textdomain>ibus-buffalo</textdomain>
+    <engines>
+          <engine>
+              <symbol>vi</symbol>
+              <name>Buffalo</name>
+              <language>vi</language>
+              <license>GPLv3</license>
+              <author>Hai Pham Ngoc</author>
+              <icon>/usr/share/ibus-buffalo/icons/vi.svg</icon>
+              <layout>default</layout>
+              <longname>Buffalo</longname>
+              <description>Vietnamese input method engine</description>
+              <setup>/usr/lib/ibus-buffalo/buffalo-ui</setup>
+              <rank>1</rank>
+          </engine>
+          <engine>
+              <symbol>vi</symbol>
+              <name>Buffalo::Us</name>
+              <language>vi</language>
+              <license>GPLv3</license>
+              <author>Hai Pham Ngoc</author>
+              <icon>/usr/share/ibus-buffalo/icons/vi.svg</icon>
+              <layout>us</layout>
+              <longname>Buffalo (US layout)</longname>
+              <description>Vietnamese input method engine with US keyboard layout</description>
+              <setup>/usr/lib/ibus-buffalo/buffalo-ui</setup>
+              <rank>1</rank>
+          </engine>
+          <!-- English (US) -->
+          <engine>
+              <symbol>en</symbol>
+              <name>BuffaloUs</name>
+              <language>en</language>
+              <license>GPLv3</license>
+              <author>Hai Pham Ngoc</author>
+              <icon>/usr/share/ibus-buffalo/icons/us.svg</icon>
+              <layout>us</layout>
+              <longname>Buffalo English (US)</longname>
+              <description>Vietnamese input method engine with US keyboard layout (English mode)</description>
+              <setup>/usr/lib/ibus-buffalo/buffalo-ui</setup>
+              <rank>2</rank>
+          </engine>
+    </engines>
+</component>

@@ -241,7 +241,7 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            input_method: "Telex 2".to_string(),
+            input_method: "Telex".to_string(),
             default_input_mode: 1, // PREEDIT_IM
             flags: ESTD_FLAGS,
             input_mode_mapping: HashMap::new(),
@@ -401,7 +401,7 @@ pub fn get_prop_list(config: &Config) -> IBusPropList {
     properties.push(OwnedValue::try_from(mode_prop).unwrap());
 
     let mut im_subprops = Vec::new();
-    let ims = vec!["Telex 2", "Telex", "VNI", "VIQR"];
+    let ims = vec!["Telex", "VNI"];
     for im in ims {
         let state = if config.input_method == im { 1 } else { 0 };
         let prop = new_ibus_property(&format!("InputMethod::{}", im), 2, im, "", state, None);
@@ -420,38 +420,6 @@ pub fn get_prop_list(config: &Config) -> IBusPropList {
         }),
     );
     properties.push(OwnedValue::try_from(im_menu).unwrap());
-
-    let mut mode_subprops = Vec::new();
-    let modes = vec![
-        (1, "1. Pre-edit (có gạch chân)"),
-        (2, "2. Surrounding Text (không gạch chân)"),
-        (3, "3. ForwardKeyEvent I"),
-        (4, "4. ForwardKeyEvent II"),
-        (5, "5. Forward as Commit"),
-        (6, "6. XTestFakeKeyEvent"),
-    ];
-    for (val, name) in modes {
-        let state = if config.default_input_mode == val {
-            1
-        } else {
-            0
-        };
-        let prop = new_ibus_property(&format!("InputMode::{}", val), 2, name, "", state, None);
-        mode_subprops.push(OwnedValue::try_from(prop).unwrap());
-    }
-    let mode_menu = new_ibus_property(
-        "input_mode_menu",
-        3,
-        "Chế độ gõ",
-        "preferences-other",
-        0,
-        Some(IBusPropList {
-            name: "IBusPropList".to_string(),
-            attachments: HashMap::new(),
-            properties: mode_subprops,
-        }),
-    );
-    properties.push(OwnedValue::try_from(mode_menu).unwrap());
 
     IBusPropList {
         name: "IBusPropList".to_string(),
@@ -630,16 +598,7 @@ impl IBusEngine {
 
     /// D-Bus method invoked to reset the engine state.
     async fn reset(&self, #[zbus(signal_emitter)] signal_emitter: SignalEmitter<'_>) {
-        let config = load_config();
-        let input_mode = {
-            let wm = self.wm_class.lock().unwrap().clone();
-            if let Some(&im) = config.input_mode_mapping.get(&wm) {
-                im
-            } else {
-                config.default_input_mode
-            }
-        };
-        self.commit_and_reset(&signal_emitter, input_mode).await;
+        self.commit_and_reset(&signal_emitter, PREEDIT_IM).await;
     }
 
     /// D-Bus methods required by IBus Engine interface but not actively implemented.
@@ -668,7 +627,7 @@ impl IBusEngine {
 
         if prop_name == "mode_switch" {
             if config.input_method == "English" {
-                config.input_method = "Telex 2".to_string();
+                config.input_method = "Telex".to_string();
             } else {
                 config.input_method = "English".to_string();
             }
@@ -677,11 +636,6 @@ impl IBusEngine {
             let im = &prop_name["InputMethod::".len()..];
             config.input_method = im.to_string();
             let _ = save_config(&config);
-        } else if prop_name.starts_with("InputMode::") {
-            if let Ok(mode) = prop_name["InputMode::".len()..].parse::<i32>() {
-                config.default_input_mode = mode;
-                let _ = save_config(&config);
-            }
         }
 
         if let Some(im_def) = get_input_method(&config.input_method) {
@@ -782,19 +736,12 @@ impl IBusEngine {
             return false;
         }
 
-        let config = load_config();
-        let input_mode = {
-            let wm = self.wm_class.lock().unwrap().clone();
-            if let Some(&im) = config.input_mode_mapping.get(&wm) {
-                im
-            } else {
-                config.default_input_mode
-            }
-        };
+        let _config = load_config();
+        let input_mode = PREEDIT_IM;
         debug_println!(
             "--> handle_key: input_mode={}, config.input_method='{}'",
             input_mode,
-            config.input_method
+            _config.input_method
         );
 
         let has_modifiers = (state

@@ -53,7 +53,7 @@ fn test_config_load_save() {
     }
 
     let mut config = load_config();
-    assert_eq!(config.input_method, "Telex 2");
+    assert_eq!(config.input_method, "Telex");
 
     config.input_method = "VNI".to_string();
     save_config(&config).unwrap();

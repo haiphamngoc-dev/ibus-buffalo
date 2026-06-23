@@ -114,7 +114,6 @@ lazy_static::lazy_static! {
         m
     };
 
-    /// High-level definitions mapping input layout names to their string-based rules definition.
     pub static ref INPUT_METHOD_DEFINITIONS: HashMap<&'static str, HashMap<&'static str, &'static str>> = {
         let mut m = HashMap::new();
 
@@ -129,28 +128,13 @@ lazy_static::lazy_static! {
         telex.insert("a", "A_Â");
         telex.insert("e", "E_Ê");
         telex.insert("o", "O_Ô");
-        telex.insert("w", "UOA_ƯƠĂ");
+        telex.insert("w", "UOA_ƯƠĂ__Ư");
         telex.insert("d", "D_Đ");
+        telex.insert("]", "__ư");
+        telex.insert("[", "__ơ");
+        telex.insert("}", "_Ư");
+        telex.insert("{", "_Ơ");
         m.insert("Telex", telex);
-
-        // Telex 2 Layout
-        let mut telex2 = HashMap::new();
-        telex2.insert("z", "XoaDauThanh");
-        telex2.insert("s", "DauSac");
-        telex2.insert("f", "DauHuyen");
-        telex2.insert("r", "DauHoi");
-        telex2.insert("x", "DauNga");
-        telex2.insert("j", "DauNang");
-        telex2.insert("a", "A_Â");
-        telex2.insert("e", "E_Ê");
-        telex2.insert("o", "O_Ô");
-        telex2.insert("w", "UOA_ƯƠĂ__Ư");
-        telex2.insert("d", "D_Đ");
-        telex2.insert("]", "__ư");
-        telex2.insert("[", "__ơ");
-        telex2.insert("}", "_Ư");
-        telex2.insert("{", "_Ơ");
-        m.insert("Telex 2", telex2);
 
         // VNI Layout
         let mut vni = HashMap::new();
@@ -165,21 +149,6 @@ lazy_static::lazy_static! {
         vni.insert("8", "A_Ă");
         vni.insert("9", "D_Đ");
         m.insert("VNI", vni);
-
-        // VIQR Layout
-        let mut viqr = HashMap::new();
-        viqr.insert("0", "XoaDauThanh");
-        viqr.insert("'", "DauSac");
-        viqr.insert("`", "DauHuyen");
-        viqr.insert("?", "DauHoi");
-        viqr.insert("~", "DauNga");
-        viqr.insert(".", "DauNang");
-        viqr.insert("^", "AEO_ÂÊÔ");
-        viqr.insert("+", "UO_ƯƠ");
-        viqr.insert("*", "UO_ƯƠ");
-        viqr.insert("(", "A_Ă");
-        viqr.insert("d", "D_Đ");
-        m.insert("VIQR", viqr);
 
         m
     };

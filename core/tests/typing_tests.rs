@@ -12,7 +12,7 @@ fn type_word(engine: &mut Engine, keystrokes: &str) -> String {
 
 #[test]
 fn test_telex_basic() {
-    let telex = get_input_method("Telex 2").expect("Failed to load Telex 2 layout");
+    let telex = get_input_method("Telex").expect("Failed to load Telex layout");
     let mut engine = Engine::new(telex, ESTD_FLAGS);
 
     assert_eq!(type_word(&mut engine, "dd"), "đ");
@@ -25,7 +25,7 @@ fn test_telex_basic() {
 
 #[test]
 fn test_telex_words() {
-    let telex = get_input_method("Telex 2").expect("Failed to load Telex 2 layout");
+    let telex = get_input_method("Telex").expect("Failed to load Telex layout");
     let mut engine = Engine::new(telex, ESTD_FLAGS);
 
     assert_eq!(type_word(&mut engine, "hoangs"), "hoáng");
@@ -37,7 +37,7 @@ fn test_telex_words() {
 
 #[test]
 fn test_telex_free_tone() {
-    let telex = get_input_method("Telex 2").expect("Failed to load Telex 2 layout");
+    let telex = get_input_method("Telex").expect("Failed to load Telex layout");
     let mut engine = Engine::new(telex, ESTD_FLAGS);
 
     // Free tone mark placement (typing accent later or in the middle)
@@ -47,7 +47,7 @@ fn test_telex_free_tone() {
 
 #[test]
 fn test_telex_undo() {
-    let telex = get_input_method("Telex 2").expect("Failed to load Telex 2 layout");
+    let telex = get_input_method("Telex").expect("Failed to load Telex layout");
     let mut engine = Engine::new(telex, ESTD_FLAGS);
 
     // Typing dd once yields đ, typing d again undoes to dd

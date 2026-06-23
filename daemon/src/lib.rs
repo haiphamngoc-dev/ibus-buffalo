@@ -13,12 +13,16 @@ macro_rules! debug_println {
     };
 }
 
-use buffalo_core::{ESTD_FLAGS, Engine, VIETNAMESE_MODE, get_input_method, is_word_break_symbol};
+use buffalo_core::{
+    CharsetEncoding, ESTD_FLAGS, Engine, VIETNAMESE_MODE, encode, get_input_method,
+    is_word_break_symbol,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::env;
 use std::fs;
 use std::path::PathBuf;
+use std::str::FromStr;
 use std::sync::Mutex;
 use zbus::object_server::SignalEmitter;
 use zbus::zvariant::{OwnedObjectPath, OwnedValue, Value};
@@ -238,6 +242,8 @@ pub struct Config {
     pub input_mode_mapping: HashMap<String, i32>,
     /// Stored active Vietnamese typing layout (Telex or VNI) used when toggling back from English mode.
     pub vietnamese_layout: String,
+    /// Output charset encoding (e.g., "Unicode", "TCVN3", "VNI", "VIQR").
+    pub charset: String,
 }
 
 impl Default for Config {
@@ -248,6 +254,7 @@ impl Default for Config {
             flags: ESTD_FLAGS,
             input_mode_mapping: HashMap::new(),
             vietnamese_layout: "Telex".to_string(),
+            charset: "Unicode".to_string(),
         }
     }
 }
@@ -423,6 +430,35 @@ pub fn get_prop_list(config: &Config) -> IBusPropList {
         }),
     );
     properties.push(OwnedValue::try_from(im_menu).unwrap());
+
+    // Charset encoding submenu
+    let mut charset_subprops = Vec::new();
+    for cs in CharsetEncoding::all() {
+        let cs_key = cs.to_string();
+        let state = if config.charset == cs_key { 1 } else { 0 };
+        let prop = new_ibus_property(
+            &format!("Charset::{}", cs_key),
+            2,
+            cs.display_name(),
+            "",
+            state,
+            None,
+        );
+        charset_subprops.push(OwnedValue::try_from(prop).unwrap());
+    }
+    let charset_menu = new_ibus_property(
+        "charset_menu",
+        3,
+        "Bảng mã",
+        "preferences-desktop-font",
+        0,
+        Some(IBusPropList {
+            name: "IBusPropList".to_string(),
+            attachments: HashMap::new(),
+            properties: charset_subprops,
+        }),
+    );
+    properties.push(OwnedValue::try_from(charset_menu).unwrap());
 
     IBusPropList {
         name: "IBusPropList".to_string(),
@@ -636,12 +672,20 @@ impl IBusEngine {
             }
             let _ = save_config(&config);
         } else if prop_name.starts_with("InputMethod::") {
-            let im = &prop_name["InputMethod::".len()..];
-            config.input_method = im.to_string();
-            if im != "English" {
-                config.vietnamese_layout = im.to_string();
+            if prop_state == 1 {
+                let im = &prop_name["InputMethod::".len()..];
+                config.input_method = im.to_string();
+                if im != "English" {
+                    config.vietnamese_layout = im.to_string();
+                }
+                let _ = save_config(&config);
             }
-            let _ = save_config(&config);
+        } else if prop_name.starts_with("Charset::") {
+            if prop_state == 1 {
+                let cs = &prop_name["Charset::".len()..];
+                config.charset = cs.to_string();
+                let _ = save_config(&config);
+            }
         }
 
         let active_layout = if config.input_method == "English" {
@@ -754,10 +798,13 @@ impl IBusEngine {
             return false;
         }
         let input_mode = PREEDIT_IM;
+        let charset =
+            CharsetEncoding::from_str(&_config.charset).unwrap_or(CharsetEncoding::Unicode);
         debug_println!(
-            "--> handle_key: input_mode={}, config.input_method='{}'",
+            "--> handle_key: input_mode={}, config.input_method='{}', charset='{}'",
             input_mode,
-            _config.input_method
+            _config.input_method,
+            _config.charset
         );
 
         let has_modifiers = (state
@@ -811,8 +858,10 @@ impl IBusEngine {
             };
 
             if can_process {
+                let encoded_new = encode(&charset, &new_text);
                 if is_backspace_mode(input_mode) {
-                    let (suffix, n_bs) = get_offset_runes(&new_text, &old_text);
+                    let encoded_old = encode(&charset, &old_text);
+                    let (suffix, n_bs) = get_offset_runes(&encoded_new, &encoded_old);
                     debug_println!("--> is_backspace_mode: suffix='{}', n_bs={}", suffix, n_bs);
                     Self::send_backspace(signal_emitter, input_mode, n_bs).await;
                     if !suffix.is_empty() {
@@ -821,14 +870,14 @@ impl IBusEngine {
                         let _ = Self::commit_text(signal_emitter, Value::from(ibus_text)).await;
                     }
                     let mut lt = self.last_text.lock().unwrap();
-                    *lt = new_text;
+                    *lt = encoded_new;
                 } else {
-                    debug_println!("--> updating preedit: '{}'", new_text);
-                    let ibus_text = new_ibus_text(&new_text);
+                    debug_println!("--> updating preedit: '{}'", encoded_new);
+                    let ibus_text = new_ibus_text(&encoded_new);
                     let _ = Self::update_preedit_text(
                         signal_emitter,
                         Value::from(ibus_text),
-                        new_text.chars().count() as u32,
+                        encoded_new.chars().count() as u32,
                         true,
                         1,
                     )
@@ -844,7 +893,8 @@ impl IBusEngine {
                     old
                 };
 
-                let committed = format!("{}{}", old_text, c);
+                let encoded_old = encode(&charset, &old_text);
+                let committed = format!("{}{}", encoded_old, c);
                 if is_backspace_mode(input_mode) {
                     debug_println!("--> backspace_mode committing: '{}'", c);
                     let ibus_text = new_ibus_text(&c.to_string());
@@ -889,19 +939,24 @@ impl IBusEngine {
             return false;
         }
 
+        let config = load_config();
+        let charset =
+            CharsetEncoding::from_str(&config.charset).unwrap_or(CharsetEncoding::Unicode);
+        let encoded_text = encode(&charset, &new_text);
+
         if is_backspace_mode(input_mode) {
             let mut lt = self.last_text.lock().unwrap();
-            *lt = new_text;
+            *lt = encoded_text;
             false
         } else {
-            if new_text.is_empty() {
+            if encoded_text.is_empty() {
                 let _ = Self::hide_preedit_text(signal_emitter).await;
             } else {
-                let ibus_text = new_ibus_text(&new_text);
+                let ibus_text = new_ibus_text(&encoded_text);
                 let _ = Self::update_preedit_text(
                     signal_emitter,
                     Value::from(ibus_text),
-                    new_text.chars().count() as u32,
+                    encoded_text.chars().count() as u32,
                     true,
                     1,
                 )
@@ -925,7 +980,11 @@ impl IBusEngine {
                 let mut lt = self.last_text.lock().unwrap();
                 lt.clear();
             } else {
-                let ibus_text = new_ibus_text(&preedit);
+                let config = load_config();
+                let charset =
+                    CharsetEncoding::from_str(&config.charset).unwrap_or(CharsetEncoding::Unicode);
+                let encoded = encode(&charset, &preedit);
+                let ibus_text = new_ibus_text(&encoded);
                 let _ = Self::commit_text(signal_emitter, Value::from(ibus_text)).await;
                 let _ = Self::hide_preedit_text(signal_emitter).await;
             }

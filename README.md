@@ -1,9 +1,11 @@
-# IBus Buffalo
+<h1 align="center">IBus Buffalo</h1>
 
-[![Latest Release](https://img.shields.io/github/v/release/haiphamngoc-dev/ibus-buffalo?logo=github&color=blue)](https://github.com/haiphamngoc-dev/ibus-buffalo/releases)
-[![Build & Release Status](https://img.shields.io/github/actions/workflow/status/haiphamngoc-dev/ibus-buffalo/release.yml?branch=main&logo=github-actions&logoColor=white)](https://github.com/haiphamngoc-dev/ibus-buffalo/actions)
-[![License](https://img.shields.io/github/license/haiphamngoc-dev/ibus-buffalo?color=green)](LICENSE)
-[![Language](https://img.shields.io/badge/language-Rust-orange?logo=rust)](https://www.rust-lang.org)
+<p align="center">
+  <a href="https://github.com/haiphamngoc-dev/ibus-buffalo/releases"><img src="https://img.shields.io/github/v/release/haiphamngoc-dev/ibus-buffalo?logo=github&color=blue" alt="Latest Release"/></a>
+  <a href="https://github.com/haiphamngoc-dev/ibus-buffalo/actions"><img src="https://img.shields.io/github/actions/workflow/status/haiphamngoc-dev/ibus-buffalo/release.yml?branch=main&logo=github-actions&logoColor=white" alt="Build & Release Status"/></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/haiphamngoc-dev/ibus-buffalo?color=green" alt="License"/></a>
+  <a href="https://www.rust-lang.org"><img src="https://img.shields.io/badge/language-Rust-orange?logo=rust" alt="Language"/></a>
+</p>
 
 **IBus Buffalo** là một bộ gõ tiếng Việt hiện đại, gọn nhẹ và hiệu năng cao dành cho hệ thống nhập liệu IBus trên hệ điều hành Linux. Dự án được phát triển hoàn toàn bằng **Rust** cho phần nhân dịch và **GTK4 / Relm4** cho giao diện cấu hình, mang lại trải nghiệm nhập liệu mượt mà, an toàn và giao diện trực quan, tinh gọn.
 
@@ -19,10 +21,15 @@
 - **Giao diện cấu hình hiện đại**: Ứng dụng cấu hình (`buffalo-ui`) được xây dựng bằng Relm4 và GTK4, mang phong cách thiết kế phẳng, trực quan và dễ sử dụng.
 - **Hỗ trợ các kiểu gõ phổ biến**: Hỗ trợ kiểu gõ **Telex** và **VNI**.
 - **Tương thích nhiều bảng mã**: Hỗ trợ gõ các bảng mã tiếng Việt thông dụng bao gồm **Unicode**, **TCVN3 (ABC)**, **VNI Windows**, và **VIQR**.
-- **Tùy chọn cấu hình nâng cao hiển thị trực quan**:
+- **Tùy chọn cấu hình nâng cao**:
   - _Tự động sửa lỗi chính tả_: Giúp sửa các lỗi gõ sai từ trong tiếng Việt một cách thông minh.
   - _Đặt dấu tự do (free tone marking)_: Cho phép gõ phím dấu ở bất kỳ vị trí nào trong từ.
   - _Đặt dấu kiểu mới_: Tự động đặt dấu chuẩn xác theo phong cách hiện đại (ví dụ: `hòa`, `khỏe` thay vì kiểu cũ `hoà`, `khoẻ`).
+  - _Cho phép gõ tắt (Shorthand)_: Tự động thay thế từ viết tắt cấu hình trong file `~/.config/ibus-buffalo/macro.txt`.
+
+<p align="center">
+  <img src="assets/macro_editor.png" alt="IBus Buffalo - Trình chỉnh sửa bảng gõ tắt" width="550"/>
+</p>
 
 ---
 

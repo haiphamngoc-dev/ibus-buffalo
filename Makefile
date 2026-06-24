@@ -21,7 +21,7 @@ DESTDIR ?=
 
 engine_name    = buffalo
 pkg_name       = ibus-$(engine_name)
-version        = 0.1.0
+version        = 0.1.1
 
 engine_dir     = $(PREFIX)/share/$(pkg_name)
 ibus_dir       = $(PREFIX)/share/ibus

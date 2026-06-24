@@ -7,7 +7,7 @@ set -e
 
 # Configuration
 PKG_NAME="ibus-buffalo"
-RAW_VERSION="${1:-0.1.0}"
+RAW_VERSION="${1:-0.1.1}"
 VERSION="${RAW_VERSION#v}"
 ARCH="amd64"
 STAGE_DIR="target/debian/${PKG_NAME}_${VERSION}_${ARCH}"

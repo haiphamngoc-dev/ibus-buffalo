@@ -26,19 +26,27 @@ jobs:
 
       - name: Build and Package .deb
         run: |
-          # Pass the tag name (e.g. v0.1.0) as the version argument to the script
+          # Pass the tag name (e.g. v0.1.1) as the version argument to the script
           ./package-deb.sh "${{ github.ref_name }}"
 
       - name: Create Release and Upload Asset
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_NOTES: |
+            Bản phát hành tự động của IBus Buffalo phiên bản TAG_NAME.
+
+            Các thay đổi nổi bật:
+            - **Tính năng Gõ tắt (Shorthand/Macros)**: Tự động thay thế cụm từ viết tắt được cấu hình từ file `~/.config/ibus-buffalo/macro.txt` (hỗ trợ cả hai chế độ Pre-edit và Backspace).
+            - **Tích hợp giao diện cấu hình**: Thêm tùy chọn bật/tắt gõ tắt và nút mở file cấu hình trực tiếp từ giao diện GTK4.
         run: |
           TAG_NAME="${{ github.ref_name }}"
-          # Strip leading 'v' from the tag name to match the package version name
           PKG_VERSION="${TAG_NAME#v}"
           DEB_FILE="target/debian/ibus-buffalo_${PKG_VERSION}_amd64.deb"
+          
+          # Replace placeholders in RELEASE_NOTES
+          NOTES=$(echo "$RELEASE_NOTES" | sed "s/TAG_NAME/$TAG_NAME/g" | sed "s/PKG_VERSION/$PKG_VERSION/g")
           
           echo "Creating GitHub Release for tag $TAG_NAME and uploading $DEB_FILE..."
           gh release create "$TAG_NAME" "$DEB_FILE" \
             --title "Release $TAG_NAME" \
-            --notes "Automated release of IBus Buffalo version $TAG_NAME. Install using: sudo dpkg -i ibus-buffalo_${PKG_VERSION}_amd64.deb"
+            --notes "$NOTES"

@@ -1,6 +1,15 @@
 # IBus Buffalo
 
+[![Latest Release](https://img.shields.io/github/v/release/haiphamngoc-dev/ibus-buffalo?logo=github&color=blue)](https://github.com/haiphamngoc-dev/ibus-buffalo/releases)
+[![Build & Release Status](https://img.shields.io/github/actions/workflow/status/haiphamngoc-dev/ibus-buffalo/release.yml?branch=main&logo=github-actions&logoColor=white)](https://github.com/haiphamngoc-dev/ibus-buffalo/actions)
+[![License](https://img.shields.io/github/license/haiphamngoc-dev/ibus-buffalo?color=green)](LICENSE)
+[![Language](https://img.shields.io/badge/language-Rust-orange?logo=rust)](https://www.rust-lang.org)
+
 **IBus Buffalo** là một bộ gõ tiếng Việt hiện đại, gọn nhẹ và hiệu năng cao dành cho hệ thống nhập liệu IBus trên hệ điều hành Linux. Dự án được phát triển hoàn toàn bằng **Rust** cho phần nhân dịch và **GTK4 / Relm4** cho giao diện cấu hình, mang lại trải nghiệm nhập liệu mượt mà, an toàn và giao diện trực quan, tinh gọn.
+
+<p align="center">
+  <img src="assets/screenshot.png" alt="IBus Buffalo - Giao diện cấu hình" width="350"/>
+</p>
 
 ---
 

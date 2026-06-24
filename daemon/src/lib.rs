@@ -888,78 +888,82 @@ impl IBusEngine {
             return false;
         }
 
-        if let Some(c) = char::from_u32(keyval) {
-            if c.is_control() {
-                debug_println!("--> handle_key: control character '{:?}'", c);
-                self.commit_and_reset(signal_emitter, input_mode).await;
-                return false;
-            }
-
-            let (can_process, old_text, new_text) = {
-                let mut engine = self.engine.lock().unwrap();
-                if engine.can_process_key(c) {
-                    let old = engine.get_processed_string(VIETNAMESE_MODE);
-                    engine.process_key(c, VIETNAMESE_MODE);
-                    let new = engine.get_processed_string(VIETNAMESE_MODE);
-                    debug_println!("--> engine processed key '{}': '{}' -> '{}'", c, old, new);
-                    (true, old, new)
-                } else {
-                    debug_println!("--> engine cannot process key '{}'", c);
-                    (false, String::new(), String::new())
+        // X11 keysyms in the range 0xff00 to 0xffff are special function keys (e.g. arrows, F1-F12, Home, End)
+        // and should not be treated as printable characters.
+        if keyval < 0xff00 {
+            if let Some(c) = char::from_u32(keyval) {
+                if c.is_control() {
+                    debug_println!("--> handle_key: control character '{:?}'", c);
+                    self.commit_and_reset(signal_emitter, input_mode).await;
+                    return false;
                 }
-            };
 
-            if can_process {
-                let encoded_new = encode(&charset, &new_text);
-                if is_backspace_mode(input_mode) {
-                    let encoded_old = encode(&charset, &old_text);
-                    let (suffix, n_bs) = get_offset_runes(&encoded_new, &encoded_old);
-                    debug_println!("--> is_backspace_mode: suffix='{}', n_bs={}", suffix, n_bs);
-                    Self::send_backspace(signal_emitter, input_mode, n_bs).await;
-                    if !suffix.is_empty() {
-                        let ibus_text = new_ibus_text(&suffix);
-                        debug_println!("--> committing suffix: '{}'", suffix);
-                        let _ = Self::commit_text(signal_emitter, Value::from(ibus_text)).await;
-                    }
-                    let mut lt = self.last_text.lock().unwrap();
-                    *lt = encoded_new;
-                } else {
-                    debug_println!("--> updating preedit: '{}'", encoded_new);
-                    let ibus_text = new_ibus_text(&encoded_new);
-                    let _ = Self::update_preedit_text(
-                        signal_emitter,
-                        Value::from(ibus_text),
-                        encoded_new.chars().count() as u32,
-                        true,
-                        1,
-                    )
-                    .await;
-                }
-                return true;
-            } else if is_word_break_symbol(c) {
-                debug_println!("--> is_word_break_symbol: '{}'", c);
-                let old_text = {
+                let (can_process, old_text, new_text) = {
                     let mut engine = self.engine.lock().unwrap();
-                    let old = engine.get_processed_string(VIETNAMESE_MODE);
-                    engine.reset();
-                    old
+                    if engine.can_process_key(c) {
+                        let old = engine.get_processed_string(VIETNAMESE_MODE);
+                        engine.process_key(c, VIETNAMESE_MODE);
+                        let new = engine.get_processed_string(VIETNAMESE_MODE);
+                        debug_println!("--> engine processed key '{}': '{}' -> '{}'", c, old, new);
+                        (true, old, new)
+                    } else {
+                        debug_println!("--> engine cannot process key '{}'", c);
+                        (false, String::new(), String::new())
+                    }
                 };
 
-                let encoded_old = encode(&charset, &old_text);
-                let committed = format!("{}{}", encoded_old, c);
-                if is_backspace_mode(input_mode) {
-                    debug_println!("--> backspace_mode committing: '{}'", c);
-                    let ibus_text = new_ibus_text(&c.to_string());
-                    let _ = Self::commit_text(signal_emitter, Value::from(ibus_text)).await;
-                    let mut lt = self.last_text.lock().unwrap();
-                    lt.clear();
-                } else {
-                    debug_println!("--> committing final word: '{}'", committed);
-                    let ibus_text = new_ibus_text(&committed);
-                    let _ = Self::commit_text(signal_emitter, Value::from(ibus_text)).await;
-                    let _ = Self::hide_preedit_text(signal_emitter).await;
+                if can_process {
+                    let encoded_new = encode(&charset, &new_text);
+                    if is_backspace_mode(input_mode) {
+                        let encoded_old = encode(&charset, &old_text);
+                        let (suffix, n_bs) = get_offset_runes(&encoded_new, &encoded_old);
+                        debug_println!("--> is_backspace_mode: suffix='{}', n_bs={}", suffix, n_bs);
+                        Self::send_backspace(signal_emitter, input_mode, n_bs).await;
+                        if !suffix.is_empty() {
+                            let ibus_text = new_ibus_text(&suffix);
+                            debug_println!("--> committing suffix: '{}'", suffix);
+                            let _ = Self::commit_text(signal_emitter, Value::from(ibus_text)).await;
+                        }
+                        let mut lt = self.last_text.lock().unwrap();
+                        *lt = encoded_new;
+                    } else {
+                        debug_println!("--> updating preedit: '{}'", encoded_new);
+                        let ibus_text = new_ibus_text(&encoded_new);
+                        let _ = Self::update_preedit_text(
+                            signal_emitter,
+                            Value::from(ibus_text),
+                            encoded_new.chars().count() as u32,
+                            true,
+                            1,
+                        )
+                        .await;
+                    }
+                    return true;
+                } else if is_word_break_symbol(c) {
+                    debug_println!("--> is_word_break_symbol: '{}'", c);
+                    let old_text = {
+                        let mut engine = self.engine.lock().unwrap();
+                        let old = engine.get_processed_string(VIETNAMESE_MODE);
+                        engine.reset();
+                        old
+                    };
+
+                    let encoded_old = encode(&charset, &old_text);
+                    let committed = format!("{}{}", encoded_old, c);
+                    if is_backspace_mode(input_mode) {
+                        debug_println!("--> backspace_mode committing: '{}'", c);
+                        let ibus_text = new_ibus_text(&c.to_string());
+                        let _ = Self::commit_text(signal_emitter, Value::from(ibus_text)).await;
+                        let mut lt = self.last_text.lock().unwrap();
+                        lt.clear();
+                    } else {
+                        debug_println!("--> committing final word: '{}'", committed);
+                        let ibus_text = new_ibus_text(&committed);
+                        let _ = Self::commit_text(signal_emitter, Value::from(ibus_text)).await;
+                        let _ = Self::hide_preedit_text(signal_emitter).await;
+                    }
+                    return true;
                 }
-                return true;
             }
         }
 

@@ -16,6 +16,8 @@ use std::str::FromStr;
 struct App {
     /// The application configuration loaded from and saved to disk.
     config: Config,
+    /// Specifies if the advanced options section is currently expanded.
+    expanded: bool,
 }
 
 /// Messages representing user interaction events in the UI.
@@ -25,16 +27,16 @@ enum Msg {
     CharsetChanged(u32),
     /// Triggered when the user selects a different input method (e.g., Telex, VNI) from the combo box.
     InputMethodChanged(u32),
-    /// Triggered when the user selects a different toggle hotkey from the combo box.
+    /// Triggered when the user selects a different toggle hotkey from the radio buttons.
     HotkeyChanged(u32),
     /// Triggered when a checkbox for an engine flag is toggled.
     ToggleFlag(u32, bool),
+    /// Toggles the expansion state of the advanced options frame.
+    ToggleExpand,
+    /// Opens the project about page in the browser.
+    ShowAbout,
     /// Closes the configuration window and exits successfully.
     Close,
-    /// Closes the window and restarts the IBus daemon to apply all changes globally.
-    Quit,
-    /// Restores all configuration fields to their default values and restarts IBus.
-    RestoreDefaults,
 }
 
 #[relm4::component]
@@ -45,164 +47,156 @@ impl SimpleComponent for App {
 
     view! {
         gtk::Window {
-            set_title: Some("IBus Buffalo"),
-            set_default_size: (400, -1),
+            set_title: Some("IBus Buffalo - Cấu hình"),
             set_resizable: false,
 
             gtk::Box {
                 set_orientation: gtk::Orientation::Vertical,
-                set_spacing: 0,
+                set_spacing: 12,
+                set_margin_all: 16,
+                add_css_class: "main-container",
 
-                // Top section containing basic settings and control buttons
-                gtk::Box {
-                    set_orientation: gtk::Orientation::Horizontal,
-                    set_spacing: 16,
-                    set_margin_all: 20,
+                // Group box "Điều khiển" using Grid Layout for perfect alignment
+                gtk::Frame {
+                    set_label: Some("Điều khiển"),
+                    add_css_class: "control-frame",
+                    set_hexpand: true,
 
-                    // Left column: dropdown settings
-                    gtk::Box {
-                        set_orientation: gtk::Orientation::Vertical,
-                        set_spacing: 12,
-                        set_hexpand: true,
+                    gtk::Grid {
+                        set_column_spacing: 12,
+                        set_row_spacing: 12,
+                        set_margin_all: 12,
 
-                        // Charset selection dropdown row
-                        gtk::Box {
+                        // Row 0: Bảng mã
+                        attach[0, 0, 1, 1] = &gtk::Label {
+                            set_text: "Bảng mã:",
+                            set_xalign: 0.0,
+                            add_css_class: "field-label",
+                        },
+
+                        #[name = "charset_combo"]
+                        attach[1, 0, 1, 1] = &gtk::ComboBoxText {
+                            set_hexpand: true,
+                            append_text: "Unicode",
+                            append_text: "TCVN3 (ABC)",
+                            append_text: "VNI Windows",
+                            append_text: "VIQR",
+
+                            set_active: Some(match CharsetEncoding::from_str(&model.config.charset) {
+                                Ok(CharsetEncoding::Unicode) => 0,
+                                Ok(CharsetEncoding::Tcvn3) => 1,
+                                Ok(CharsetEncoding::VniWindows) => 2,
+                                Ok(CharsetEncoding::Viqr) => 3,
+                                _ => 0,
+                            }),
+
+                            connect_changed[sender] => move |combo| {
+                                let idx = combo.active().unwrap_or(0);
+                                sender.input(Msg::CharsetChanged(idx));
+                            }
+                        },
+
+                        // Row 1: Kiểu gõ
+                        attach[0, 1, 1, 1] = &gtk::Label {
+                            set_text: "Kiểu gõ:",
+                            set_xalign: 0.0,
+                            add_css_class: "field-label",
+                        },
+
+                        #[name = "im_combo"]
+                        attach[1, 1, 1, 1] = &gtk::ComboBoxText {
+                            set_hexpand: true,
+                            append_text: "Telex",
+                            append_text: "VNI",
+
+                            set_active: Some(match model.config.input_method.as_str() {
+                                "Telex" => 0,
+                                "VNI" => 1,
+                                "English" => match model.config.vietnamese_layout.as_str() {
+                                    "VNI" => 1,
+                                    _ => 0,
+                                },
+                                _ => 0,
+                            }),
+
+                            connect_changed[sender] => move |combo| {
+                                let idx = combo.active().unwrap_or(0);
+                                sender.input(Msg::InputMethodChanged(idx));
+                            }
+                        },
+
+                        // Row 2: Phím chuyển
+                        attach[0, 2, 1, 1] = &gtk::Label {
+                            set_text: "Phím chuyển:",
+                            set_xalign: 0.0,
+                            add_css_class: "field-label",
+                        },
+
+                        attach[1, 2, 1, 1] = &gtk::Box {
                             set_orientation: gtk::Orientation::Horizontal,
-                            set_spacing: 12,
+                            set_spacing: 16,
 
-                            gtk::Label {
-                                set_text: "Bảng mã:",
-                                set_halign: gtk::Align::Start,
-                                set_width_chars: 10,
-                                add_css_class: "field-label",
-                            },
-
-                            #[name = "charset_combo"]
-                            gtk::ComboBoxText {
-                                set_hexpand: true,
-                                append_text: "Unicode",
-                                append_text: "TCVN3 (ABC)",
-                                append_text: "VNI Windows",
-                                append_text: "VIQR",
-
-                                connect_changed[sender] => move |combo| {
-                                    let idx = combo.active().unwrap_or(0);
-                                    sender.input(Msg::CharsetChanged(idx));
+                            #[name = "ctrl_shift_radio"]
+                            gtk::CheckButton {
+                                set_label: Some("CTRL + SHIFT"),
+                                set_active: model.config.hotkey == "Ctrl+Shift",
+                                connect_toggled[sender] => move |btn| {
+                                    if btn.is_active() {
+                                        sender.input(Msg::HotkeyChanged(0));
+                                    }
                                 }
                             },
-                        },
 
-                        // Input method layout selection dropdown row
-                        gtk::Box {
-                            set_orientation: gtk::Orientation::Horizontal,
-                            set_spacing: 12,
-
-                            gtk::Label {
-                                set_text: "Kiểu gõ:",
-                                set_halign: gtk::Align::Start,
-                                set_width_chars: 10,
-                                add_css_class: "field-label",
-                            },
-
-                            #[name = "im_combo"]
-                            gtk::ComboBoxText {
-                                set_hexpand: true,
-                                append_text: "Telex",
-                                append_text: "VNI",
-
-                                connect_changed[sender] => move |combo| {
-                                    let idx = combo.active().unwrap_or(0);
-                                    sender.input(Msg::InputMethodChanged(idx));
+                            #[name = "alt_x_radio"]
+                            gtk::CheckButton {
+                                set_label: Some("ALT + X"),
+                                set_group: Some(&ctrl_shift_radio),
+                                set_active: model.config.hotkey == "Alt+X",
+                                connect_toggled[sender] => move |btn| {
+                                    if btn.is_active() {
+                                        sender.input(Msg::HotkeyChanged(1));
+                                    }
                                 }
                             },
-                        },
-
-                        // Hotkey selection dropdown row
-                        gtk::Box {
-                            set_orientation: gtk::Orientation::Horizontal,
-                            set_spacing: 12,
-
-                            gtk::Label {
-                                set_text: "Phím chuyển:",
-                                set_halign: gtk::Align::Start,
-                                set_width_chars: 10,
-                                add_css_class: "field-label",
-                            },
-
-                            #[name = "hotkey_combo"]
-                            gtk::ComboBoxText {
-                                set_hexpand: true,
-                                append_text: "Ctrl + Shift",
-                                append_text: "Alt + X",
-
-                                connect_changed[sender] => move |combo| {
-                                    let idx = combo.active().unwrap_or(0);
-                                    sender.input(Msg::HotkeyChanged(idx));
-                                }
-                            },
-                        },
-                    },
-
-                    // Right column: action control buttons
-                    gtk::Box {
-                        set_orientation: gtk::Orientation::Vertical,
-                        set_spacing: 8,
-
-                        gtk::Button {
-                            set_label: "Đóng",
-                            add_css_class: "accent-btn",
-                            set_width_request: 110,
-                            connect_clicked => Msg::Close,
-                        },
-
-                        gtk::Button {
-                            set_label: "Kết thúc",
-                            set_width_request: 110,
-                            connect_clicked => Msg::Quit,
-                        },
-
-                        gtk::Button {
-                            set_label: "Mặc định",
-                            set_width_request: 110,
-                            connect_clicked => Msg::RestoreDefaults,
-                        },
-                    },
+                        }
+                    }
                 },
 
-                // Advanced options section enclosed in a frame
+                // Collapsible Advanced Options
+                #[name = "advanced_frame"]
                 gtk::Frame {
                     set_label: Some("Tùy chọn nâng cao"),
-                    set_margin_start: 20,
-                    set_margin_end: 20,
-                    set_margin_bottom: 20,
+                    add_css_class: "control-frame",
+                    set_visible: model.expanded,
+                    set_hexpand: true,
 
                     gtk::Box {
                         set_orientation: gtk::Orientation::Vertical,
                         set_spacing: 8,
                         set_margin_all: 12,
 
-                        // Checkbox to toggle automatic Vietnamese spelling correction
                         #[name = "spell_check"]
                         gtk::CheckButton {
                             set_label: Some("Tự động sửa lỗi chính tả"),
+                            set_active: (model.config.flags & EAUTO_CORRECT_ENABLED) != 0,
                             connect_toggled[sender] => move |btn| {
                                 sender.input(Msg::ToggleFlag(EAUTO_CORRECT_ENABLED, btn.is_active()));
                             }
                         },
 
-                        // Checkbox to toggle modern free tone placement rules
                         #[name = "free_tone"]
                         gtk::CheckButton {
                             set_label: Some("Đặt dấu tự do (free tone marking)"),
+                            set_active: (model.config.flags & EFREE_TONE_MARKING) != 0,
                             connect_toggled[sender] => move |btn| {
                                 sender.input(Msg::ToggleFlag(EFREE_TONE_MARKING, btn.is_active()));
                             }
                         },
 
-                        // Checkbox to toggle standard tone styles (e.g., hòa vs hoà)
                         #[name = "std_tone"]
                         gtk::CheckButton {
                             set_label: Some("Đặt dấu kiểu mới (hòa, khỏe,...)"),
+                            set_active: (model.config.flags & ESTD_TONE_STYLE) != 0,
                             connect_toggled[sender] => move |btn| {
                                 sender.input(Msg::ToggleFlag(ESTD_TONE_STYLE, btn.is_active()));
                             }
@@ -210,86 +204,107 @@ impl SimpleComponent for App {
                     }
                 },
 
-                gtk::Separator {
-                    set_orientation: gtk::Orientation::Horizontal,
-                },
-
-                // Footer section containing version details and repository links
+                // Bottom row of action buttons: Mở rộng, Thông tin, Đóng
+                // homogeneous: true ensures equal width distribution
+                // hexpand: true makes the container fill the window width, aligning perfectly with the frames
                 gtk::Box {
                     set_orientation: gtk::Orientation::Horizontal,
-                    set_margin_start: 20,
-                    set_margin_end: 20,
-                    set_margin_top: 10,
-                    set_margin_bottom: 10,
+                    set_spacing: 12,
+                    set_homogeneous: true,
+                    set_hexpand: true,
 
-                    gtk::Label {
-                        set_text: "IBus Buffalo v0.1.0",
-                        set_halign: gtk::Align::Start,
-                        set_hexpand: true,
-                        add_css_class: "status-label",
+                    gtk::Button {
+                        set_label: if model.expanded { "Thu nhỏ" } else { "Mở rộng" },
+                        add_css_class: "btn-normal",
+                        connect_clicked => Msg::ToggleExpand,
                     },
 
-                    gtk::Label {
-                        set_markup: "<a href=\"https://github.com/haiphamngoc-dev/ibus-buffalo\">github.com/haiphamngoc-dev/ibus-buffalo</a>",
-                        set_halign: gtk::Align::End,
-                        add_css_class: "status-label",
+                    gtk::Button {
+                        set_label: "Thông tin",
+                        add_css_class: "btn-normal",
+                        connect_clicked => Msg::ShowAbout,
                     },
-                },
-            },
+
+                    gtk::Button {
+                        set_label: "Đóng",
+                        add_css_class: "btn-close",
+                        connect_clicked => Msg::Close,
+                    }
+                }
+            }
         }
     }
 
-    /// Initializes the component model and loads custom styles and widget values.
+    /// Initializes the component model and loads custom styles.
     fn init(
         _init: Self::Init,
         root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
         let config = load_config();
-        let model = App { config };
+        let model = App {
+            config,
+            expanded: false,
+        };
 
         // Define premium custom styling rules using GTK CSS
         let provider = gtk::CssProvider::new();
         provider.load_from_data(
             "
             window {
-                background-color: #f0f0f0;
+                background-color: #f3f4f6;
             }
-            .field-label {
-                font-size: 13px;
-                font-weight: 500;
-                color: #333333;
+            .main-container {
+                padding: 4px;
             }
-            .status-label {
-                font-size: 11px;
-                color: #888888;
-            }
-            button {
-                padding: 6px 12px;
-                border-radius: 4px;
-                font-size: 13px;
-            }
-            .accent-btn {
-                background-color: #2563eb;
-                color: #ffffff;
-                font-weight: 600;
-            }
-            .accent-btn:hover {
-                background-color: #1d4ed8;
-            }
-            combobox button {
-                padding: 4px 8px;
-            }
-            frame {
+            .control-frame {
                 border: 1px solid #d1d5db;
                 border-radius: 6px;
                 background-color: #ffffff;
             }
-            frame > label {
-                font-weight: 600;
-                font-size: 12px;
-                color: #4b5563;
-                margin-bottom: 4px;
+            .control-frame > label {
+                font-weight: bold;
+                font-size: 13px;
+                color: #374151;
+            }
+            .field-label {
+                font-size: 13px;
+                font-weight: 500;
+                color: #374151;
+            }
+            /* Style only our custom action buttons, not combobox buttons */
+            .btn-close, .btn-normal {
+                padding: 6px 12px;
+                border-radius: 6px;
+                font-size: 13px;
+                font-weight: 500;
+                transition: all 0.15s ease-in-out;
+            }
+            /* Prominent, high-contrast Close (Đóng) button */
+            .btn-close {
+                background-color: #2563eb;
+                background-image: none;
+                color: #ffffff;
+                font-weight: bold;
+                border: 1px solid #1d4ed8;
+            }
+            .btn-close:hover {
+                background-color: #1d4ed8;
+            }
+            .btn-normal {
+                background-color: #ffffff;
+                background-image: none;
+                color: #374151;
+                border: 1px solid #d1d5db;
+            }
+            .btn-normal:hover {
+                background-color: #f3f4f6;
+                border-color: #9ca3af;
+            }
+            checkbutton {
+                font-size: 13px;
+                font-weight: 500;
+                color: #374151;
             }
         ",
         );
@@ -304,47 +319,6 @@ impl SimpleComponent for App {
         }
 
         let widgets = view_output!();
-
-        // Initialize charset dropdown selection based on config
-        let charset_idx = match CharsetEncoding::from_str(&model.config.charset) {
-            Ok(CharsetEncoding::Unicode) => 0,
-            Ok(CharsetEncoding::Tcvn3) => 1,
-            Ok(CharsetEncoding::VniWindows) => 2,
-            Ok(CharsetEncoding::Viqr) => 3,
-            _ => 0,
-        };
-        widgets.charset_combo.set_active(Some(charset_idx));
-
-        // Initialize input method dropdown selection based on config
-        let im_idx = match model.config.input_method.as_str() {
-            "Telex" => 0u32,
-            "VNI" => 1,
-            "English" => match model.config.vietnamese_layout.as_str() {
-                "VNI" => 1,
-                _ => 0,
-            },
-            _ => 0,
-        };
-        widgets.im_combo.set_active(Some(im_idx));
-
-        // Initialize hotkey dropdown selection based on config
-        let hotkey_idx = match model.config.hotkey.as_str() {
-            "Ctrl+Shift" => 0,
-            "Alt+X" => 1,
-            _ => 0,
-        };
-        widgets.hotkey_combo.set_active(Some(hotkey_idx));
-
-        // Initialize checkboxes based on config flags bitmask
-        widgets
-            .spell_check
-            .set_active((model.config.flags & EAUTO_CORRECT_ENABLED) != 0);
-        widgets
-            .free_tone
-            .set_active((model.config.flags & EFREE_TONE_MARKING) != 0);
-        widgets
-            .std_tone
-            .set_active((model.config.flags & ESTD_TONE_STYLE) != 0);
 
         ComponentParts { model, widgets }
     }
@@ -386,19 +360,16 @@ impl SimpleComponent for App {
                 }
                 let _ = save_config(&self.config);
             }
+            Msg::ToggleExpand => {
+                self.expanded = !self.expanded;
+            }
+            Msg::ShowAbout => {
+                let _ = std::process::Command::new("xdg-open")
+                    .arg("https://github.com/haiphamngoc-dev/ibus-buffalo")
+                    .spawn();
+            }
             Msg::Close => {
                 let _ = save_config(&self.config);
-                std::process::exit(0);
-            }
-            Msg::Quit => {
-                let _ = save_config(&self.config);
-                let _ = std::process::Command::new("ibus").args(["restart"]).spawn();
-                std::process::exit(0);
-            }
-            Msg::RestoreDefaults => {
-                self.config = Config::default();
-                let _ = save_config(&self.config);
-                let _ = std::process::Command::new("ibus").args(["restart"]).spawn();
                 std::process::exit(0);
             }
         }

@@ -54,19 +54,5 @@
               <setup>/usr/lib/ibus-buffalo/buffalo-ui</setup>
               <rank>1</rank>
           </engine>
-          <!-- English (US) -->
-          <engine>
-              <symbol>en</symbol>
-              <name>BuffaloUs</name>
-              <language>en</language>
-              <license>GPLv3</license>
-              <author>Hai Pham Ngoc</author>
-              <icon>/usr/share/ibus-buffalo/icons/us.svg</icon>
-              <layout>us</layout>
-              <longname>Buffalo English (US)</longname>
-              <description>Vietnamese input method engine with US keyboard layout (English mode)</description>
-              <setup>/usr/lib/ibus-buffalo/buffalo-ui</setup>
-              <rank>2</rank>
-          </engine>
     </engines>
 </component>

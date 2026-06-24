@@ -240,41 +240,23 @@ pub fn is_modifier_key(keyval: u32) -> bool {
     (keyval >= 0xffe1 && keyval <= 0xffee) || keyval == 0xfe03 || keyval == 0xff7e
 }
 
-/// Helper to return default hotkey value for serde deserialization.
-pub fn default_hotkey() -> String {
-    "Ctrl+Shift".to_string()
-}
-
 /// Configuration for the IBus Buffalo input method.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Config {
-    /// Currently selected input method (e.g., "Telex", "VNI", "English").
+    /// Currently selected input method (e.g., "Telex", "VNI").
     pub input_method: String,
-    /// Default typing/output mode.
-    pub default_input_mode: i32,
     /// Engine flags.
     pub flags: u32,
-    /// Mapping of window classes to specific input modes.
-    pub input_mode_mapping: HashMap<String, i32>,
-    /// Stored active Vietnamese typing layout (Telex or VNI) used when toggling back from English mode.
-    pub vietnamese_layout: String,
     /// Output charset encoding (e.g., "Unicode", "TCVN3", "VNI", "VIQR").
     pub charset: String,
-    /// Toggle hotkey used to switch between English and Vietnamese modes.
-    #[serde(default = "default_hotkey")]
-    pub hotkey: String,
 }
 
 impl Default for Config {
     fn default() -> Self {
         Self {
             input_method: "Telex".to_string(),
-            default_input_mode: 1, // PREEDIT_IM
             flags: ESTD_FLAGS,
-            input_mode_mapping: HashMap::new(),
-            vietnamese_layout: "Telex".to_string(),
             charset: "Unicode".to_string(),
-            hotkey: "Ctrl+Shift".to_string(),
         }
     }
 }
@@ -286,7 +268,11 @@ pub fn load_config() -> Config {
         .join("ibus-buffalo")
         .join("config.toml");
     if let Ok(content) = fs::read_to_string(&path) {
-        if let Ok(cfg) = toml::from_str(&content) {
+        if let Ok(mut cfg) = toml::from_str::<Config>(&content) {
+            if cfg.input_method == "English" {
+                cfg.input_method = "Telex".to_string();
+                let _ = save_config(&cfg);
+            }
             return cfg;
         }
     }
@@ -405,52 +391,11 @@ pub fn new_ibus_property(
     }
 }
 
-/// Generates the list of standard settings and options displayed in the IBus menu.
-///
-/// * `config` - Reference to the active configuration.
 pub fn get_prop_list(config: &Config) -> IBusPropList {
     let mut properties = Vec::new();
 
     let about_prop = new_ibus_property("about", 0, "IBus Buffalo", "gtk-about", 0, None);
     properties.push(OwnedValue::try_from(about_prop).unwrap());
-
-    let is_vi = config.input_method != "English";
-
-    // Typing mode submenu
-    let mut mode_subprops = Vec::new();
-    let prop_vi = new_ibus_property(
-        "Mode::Vietnamese",
-        2,
-        "Tiếng Việt",
-        "",
-        if is_vi { 1 } else { 0 },
-        None,
-    );
-    mode_subprops.push(OwnedValue::try_from(prop_vi).unwrap());
-
-    let prop_en = new_ibus_property(
-        "Mode::English",
-        2,
-        "Tiếng Anh",
-        "",
-        if !is_vi { 1 } else { 0 },
-        None,
-    );
-    mode_subprops.push(OwnedValue::try_from(prop_en).unwrap());
-
-    let mode_menu = new_ibus_property(
-        "mode_menu",
-        3,
-        "Chế độ gõ",
-        if is_vi { "vi" } else { "en" },
-        0,
-        Some(IBusPropList {
-            name: "IBusPropList".to_string(),
-            attachments: HashMap::new(),
-            properties: mode_subprops,
-        }),
-    );
-    properties.push(OwnedValue::try_from(mode_menu).unwrap());
 
     let mut im_subprops = Vec::new();
     let ims = vec!["Telex", "VNI"];
@@ -501,42 +446,6 @@ pub fn get_prop_list(config: &Config) -> IBusPropList {
         }),
     );
     properties.push(OwnedValue::try_from(charset_menu).unwrap());
-
-    // Hotkey submenu
-    let mut hotkey_subprops = Vec::new();
-    let prop_ctrl_shift = new_ibus_property(
-        "Hotkey::CtrlShift",
-        2,
-        "Ctrl + Shift",
-        "",
-        if config.hotkey == "Ctrl+Shift" { 1 } else { 0 },
-        None,
-    );
-    hotkey_subprops.push(OwnedValue::try_from(prop_ctrl_shift).unwrap());
-
-    let prop_alt_x = new_ibus_property(
-        "Hotkey::AltX",
-        2,
-        "Alt + X",
-        "",
-        if config.hotkey == "Alt+X" { 1 } else { 0 },
-        None,
-    );
-    hotkey_subprops.push(OwnedValue::try_from(prop_alt_x).unwrap());
-
-    let hotkey_menu = new_ibus_property(
-        "hotkey_menu",
-        3,
-        "Phím chuyển",
-        "preferences-desktop-keyboard-shortcuts",
-        0,
-        Some(IBusPropList {
-            name: "IBusPropList".to_string(),
-            attachments: HashMap::new(),
-            properties: hotkey_subprops,
-        }),
-    );
-    properties.push(OwnedValue::try_from(hotkey_menu).unwrap());
 
     IBusPropList {
         name: "IBusPropList".to_string(),
@@ -645,12 +554,6 @@ pub struct IBusEngine {
     pub wm_class: Mutex<String>,
     /// The last committed text, used for offset calculations.
     pub last_text: Mutex<String>,
-    /// Flag indicating if the Ctrl key is currently pressed (for hotkey detection).
-    pub ctrl_pressed: Mutex<bool>,
-    /// Flag indicating if the Shift key is currently pressed (for hotkey detection).
-    pub shift_pressed: Mutex<bool>,
-    /// Flag indicating if any other key was pressed while Ctrl and Shift are held.
-    pub other_pressed: Mutex<bool>,
 }
 
 impl IBusEngine {
@@ -660,38 +563,7 @@ impl IBusEngine {
             engine: Mutex::new(engine),
             wm_class: Mutex::new(String::new()),
             last_text: Mutex::new(String::new()),
-            ctrl_pressed: Mutex::new(false),
-            shift_pressed: Mutex::new(false),
-            other_pressed: Mutex::new(false),
         }
-    }
-
-    /// Toggles the typing mode between English and Vietnamese, saves configuration,
-    /// and refreshes the active engine layout and Menubar properties.
-    pub async fn toggle_mode(&self, signal_emitter: &SignalEmitter<'_>) {
-        self.commit_and_reset(signal_emitter, PREEDIT_IM).await;
-
-        let mut config = load_config();
-        if config.input_method == "English" {
-            config.input_method = config.vietnamese_layout.clone();
-        } else {
-            config.input_method = "English".to_string();
-        }
-        let _ = save_config(&config);
-
-        let active_layout = if config.input_method == "English" {
-            &config.vietnamese_layout
-        } else {
-            &config.input_method
-        };
-        if let Some(im_def) = get_input_method(active_layout) {
-            let mut engine = self.engine.lock().unwrap();
-            *engine = Engine::new(im_def, config.flags);
-        }
-
-        let props = get_prop_list(&config);
-        let props_val = OwnedValue::try_from(props).unwrap();
-        let _ = Self::register_properties(signal_emitter, Value::from(props_val)).await;
     }
 }
 
@@ -741,11 +613,6 @@ impl IBusEngine {
             }
         }
 
-        // Reset hotkey states on focus transition to avoid stuck modifier keys
-        *self.ctrl_pressed.lock().unwrap() = false;
-        *self.shift_pressed.lock().unwrap() = false;
-        *self.other_pressed.lock().unwrap() = false;
-
         let config = load_config();
         let props = get_prop_list(&config);
         let props_val = OwnedValue::try_from(props).unwrap();
@@ -758,10 +625,6 @@ impl IBusEngine {
     /// D-Bus method invoked to reset the engine state.
     async fn reset(&self, #[zbus(signal_emitter)] signal_emitter: SignalEmitter<'_>) {
         self.commit_and_reset(&signal_emitter, PREEDIT_IM).await;
-        // Reset hotkey states on engine reset to ensure clean slate
-        *self.ctrl_pressed.lock().unwrap() = false;
-        *self.shift_pressed.lock().unwrap() = false;
-        *self.other_pressed.lock().unwrap() = false;
     }
 
     /// D-Bus methods required by IBus Engine interface but not actively implemented.
@@ -795,23 +658,10 @@ impl IBusEngine {
 
         let mut config = load_config();
 
-        if prop_name.starts_with("Mode::") {
-            if prop_state == 1 {
-                let mode = &prop_name["Mode::".len()..];
-                if mode == "Vietnamese" {
-                    config.input_method = config.vietnamese_layout.clone();
-                } else if mode == "English" {
-                    config.input_method = "English".to_string();
-                }
-                let _ = save_config(&config);
-            }
-        } else if prop_name.starts_with("InputMethod::") {
+        if prop_name.starts_with("InputMethod::") {
             if prop_state == 1 {
                 let im = &prop_name["InputMethod::".len()..];
                 config.input_method = im.to_string();
-                if im != "English" {
-                    config.vietnamese_layout = im.to_string();
-                }
                 let _ = save_config(&config);
             }
         } else if prop_name.starts_with("Charset::") {
@@ -820,23 +670,9 @@ impl IBusEngine {
                 config.charset = cs.to_string();
                 let _ = save_config(&config);
             }
-        } else if prop_name.starts_with("Hotkey::") {
-            if prop_state == 1 {
-                let hk = &prop_name["Hotkey::".len()..];
-                if hk == "CtrlShift" {
-                    config.hotkey = "Ctrl+Shift".to_string();
-                } else if hk == "AltX" {
-                    config.hotkey = "Alt+X".to_string();
-                }
-                let _ = save_config(&config);
-            }
         }
 
-        let active_layout = if config.input_method == "English" {
-            &config.vietnamese_layout
-        } else {
-            &config.input_method
-        };
+        let active_layout = &config.input_method;
         if let Some(im_def) = get_input_method(active_layout) {
             let mut engine = self.engine.lock().unwrap();
             *engine = Engine::new(im_def, config.flags);
@@ -933,83 +769,6 @@ impl IBusEngine {
         let _config = load_config();
         let is_release = (state & IBUS_RELEASE_MASK) != 0;
 
-        // Self-correct modifier states if a normal/non-modifier key is pressed or released.
-        // This prevents stuck states (e.g. from missed key release events during focus changes or shortcuts)
-        // from permanently blocking hotkey detection.
-        if !is_modifier_key(keyval) {
-            let has_ctrl_modifier = (state & IBUS_CONTROL_MASK) != 0;
-            let has_shift_modifier = (state & IBUS_SHIFT_MASK) != 0;
-            if !has_ctrl_modifier {
-                *self.ctrl_pressed.lock().unwrap() = false;
-            }
-            if !has_shift_modifier {
-                *self.shift_pressed.lock().unwrap() = false;
-            }
-            if !has_ctrl_modifier && !has_shift_modifier {
-                *self.other_pressed.lock().unwrap() = false;
-            }
-        }
-
-        // 1. Detect Ctrl+Shift hotkey (on release)
-        if _config.hotkey == "Ctrl+Shift" {
-            let is_ctrl = keyval == 0xffe3 || keyval == 0xffe4;
-            let is_shift = keyval == 0xffe1 || keyval == 0xffe2;
-
-            if !is_release {
-                if is_ctrl {
-                    let mut ctrl = self.ctrl_pressed.lock().unwrap();
-                    *ctrl = true;
-                } else if is_shift {
-                    let mut shift = self.shift_pressed.lock().unwrap();
-                    *shift = true;
-                } else {
-                    let ctrl = *self.ctrl_pressed.lock().unwrap();
-                    let shift = *self.shift_pressed.lock().unwrap();
-                    if ctrl || shift {
-                        let mut other = self.other_pressed.lock().unwrap();
-                        *other = true;
-                    }
-                }
-            } else {
-                // Release event
-                if is_ctrl || is_shift {
-                    let ctrl = *self.ctrl_pressed.lock().unwrap();
-                    let shift = *self.shift_pressed.lock().unwrap();
-                    let other = *self.other_pressed.lock().unwrap();
-
-                    if ctrl && shift && !other {
-                        self.toggle_mode(signal_emitter).await;
-                        *self.ctrl_pressed.lock().unwrap() = false;
-                        *self.shift_pressed.lock().unwrap() = false;
-                        *self.other_pressed.lock().unwrap() = false;
-                        return false;
-                    }
-
-                    if is_ctrl {
-                        *self.ctrl_pressed.lock().unwrap() = false;
-                    }
-                    if is_shift {
-                        *self.shift_pressed.lock().unwrap() = false;
-                    }
-                    if !*self.ctrl_pressed.lock().unwrap() && !*self.shift_pressed.lock().unwrap() {
-                        *self.other_pressed.lock().unwrap() = false;
-                    }
-                }
-            }
-        }
-
-        // 2. Detect Alt+X hotkey (on press)
-        if _config.hotkey == "Alt+X" && !is_release {
-            let is_alt = (state & IBUS_MOD1_MASK) != 0;
-            let is_x = keyval == 0x78 || keyval == 0x58; // 'x' or 'X'
-            let no_other_modifiers = (state & (IBUS_CONTROL_MASK | IBUS_SUPER_MASK)) == 0;
-
-            if is_alt && is_x && no_other_modifiers {
-                self.toggle_mode(signal_emitter).await;
-                return true;
-            }
-        }
-
         if is_release {
             debug_println!("--> handle_key ignored (release event)");
             return false;
@@ -1023,11 +782,6 @@ impl IBusEngine {
             return false;
         }
 
-        if _config.input_method == "English" {
-            debug_println!("--> English mode active, bypassing");
-            self.commit_and_reset(signal_emitter, PREEDIT_IM).await;
-            return false;
-        }
         let input_mode = PREEDIT_IM;
         let charset =
             CharsetEncoding::from_str(&_config.charset).unwrap_or(CharsetEncoding::Unicode);
@@ -1290,11 +1044,7 @@ impl IBusFactory {
         println!("Creating engine for layout: {}", engine_name);
 
         let config = load_config();
-        let active_layout = if config.input_method == "English" {
-            &config.vietnamese_layout
-        } else {
-            &config.input_method
-        };
+        let active_layout = &config.input_method;
         let im_def = get_input_method(active_layout).ok_or_else(|| {
             zbus::fdo::Error::Failed(format!("Input method {} not found", active_layout))
         })?;

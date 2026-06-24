@@ -27,8 +27,6 @@ enum Msg {
     CharsetChanged(u32),
     /// Triggered when the user selects a different input method (e.g., Telex, VNI) from the combo box.
     InputMethodChanged(u32),
-    /// Triggered when the user selects a different toggle hotkey from the radio buttons.
-    HotkeyChanged(u32),
     /// Triggered when a checkbox for an engine flag is toggled.
     ToggleFlag(u32, bool),
     /// Toggles the expansion state of the advanced options frame.
@@ -112,10 +110,6 @@ impl SimpleComponent for App {
                             set_active: Some(match model.config.input_method.as_str() {
                                 "Telex" => 0,
                                 "VNI" => 1,
-                                "English" => match model.config.vietnamese_layout.as_str() {
-                                    "VNI" => 1,
-                                    _ => 0,
-                                },
                                 _ => 0,
                             }),
 
@@ -124,41 +118,6 @@ impl SimpleComponent for App {
                                 sender.input(Msg::InputMethodChanged(idx));
                             }
                         },
-
-                        // Row 2: Phím chuyển
-                        attach[0, 2, 1, 1] = &gtk::Label {
-                            set_text: "Phím chuyển:",
-                            set_xalign: 0.0,
-                            add_css_class: "field-label",
-                        },
-
-                        attach[1, 2, 1, 1] = &gtk::Box {
-                            set_orientation: gtk::Orientation::Horizontal,
-                            set_spacing: 16,
-
-                            #[name = "ctrl_shift_radio"]
-                            gtk::CheckButton {
-                                set_label: Some("CTRL + SHIFT"),
-                                set_active: model.config.hotkey == "Ctrl+Shift",
-                                connect_toggled[sender] => move |btn| {
-                                    if btn.is_active() {
-                                        sender.input(Msg::HotkeyChanged(0));
-                                    }
-                                }
-                            },
-
-                            #[name = "alt_x_radio"]
-                            gtk::CheckButton {
-                                set_label: Some("ALT + X"),
-                                set_group: Some(&ctrl_shift_radio),
-                                set_active: model.config.hotkey == "Alt+X",
-                                connect_toggled[sender] => move |btn| {
-                                    if btn.is_active() {
-                                        sender.input(Msg::HotkeyChanged(1));
-                                    }
-                                }
-                            },
-                        }
                     }
                 },
 
@@ -340,16 +299,6 @@ impl SimpleComponent for App {
                     _ => "Telex",
                 };
                 self.config.input_method = im.to_string();
-                self.config.vietnamese_layout = im.to_string();
-                let _ = save_config(&self.config);
-            }
-            Msg::HotkeyChanged(idx) => {
-                let hk = match idx {
-                    0 => "Ctrl+Shift",
-                    1 => "Alt+X",
-                    _ => "Ctrl+Shift",
-                };
-                self.config.hotkey = hk.to_string();
                 let _ = save_config(&self.config);
             }
             Msg::ToggleFlag(flag, active) => {

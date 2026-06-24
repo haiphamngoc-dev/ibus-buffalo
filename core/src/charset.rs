@@ -57,47 +57,63 @@ pub fn is_word_break_symbol(key: char) -> bool {
     is_punctuation_mark(key) || (key >= '0' && key <= '9')
 }
 
-/// Checks if a character is a Vietnamese vowel (regardless of tone or diacritic).
+/// Checks if a character is a Vietnamese vowel (regardless of tone or diacritic, case-insensitive).
 pub fn is_vowel(chr: char) -> bool {
-    VOWELS.contains(&chr)
+    let lower = chr.to_lowercase().next().unwrap_or(chr);
+    VOWELS.contains(&lower)
 }
 
-/// Finds the index position of a vowel in the static `VOWELS` vector.
+/// Finds the index position of a vowel in the static `VOWELS` vector (case-insensitive).
 ///
 /// Returns `Some(index)` if found, or `None` otherwise.
 pub fn find_vowel_position(chr: char) -> Option<usize> {
-    VOWELS.iter().position(|&v| v == chr)
+    let lower = chr.to_lowercase().next().unwrap_or(chr);
+    VOWELS.iter().position(|&v| v == lower)
 }
 
-/// Returns a list of characters belonging to the mark family of the given character.
+/// Returns a list of characters belonging to the mark family of the given character (case-preserving).
 ///
 /// Useful for identifying variations of a character with different diacritics (e.g. `a` -> `['a', 'â', 'ă']`).
 pub fn get_mark_family(chr: char) -> Vec<char> {
-    if let Some(&s) = MARKS_MAPS.get(&chr) {
-        s.chars().filter(|&c| c != '_').collect()
+    let lower = chr.to_lowercase().next().unwrap_or(chr);
+    if let Some(&s) = MARKS_MAPS.get(&lower) {
+        let family: Vec<char> = s.chars().filter(|&c| c != '_').collect();
+        if chr.is_uppercase() {
+            return family
+                .into_iter()
+                .map(|c| c.to_uppercase().next().unwrap_or(c))
+                .collect();
+        }
+        family
     } else {
         Vec::new()
     }
 }
 
-/// Finds the position/index of a character within its mark family mapping.
+/// Finds the position/index of a character within its mark family mapping (case-insensitive).
 pub fn find_mark_position(chr: char) -> Option<usize> {
-    if let Some(&s) = MARKS_MAPS.get(&chr) {
-        s.chars().position(|v| v == chr)
+    let lower = chr.to_lowercase().next().unwrap_or(chr);
+    if let Some(&s) = MARKS_MAPS.get(&lower) {
+        s.chars().position(|v| v == lower)
     } else {
         None
     }
 }
 
-/// Adds a diacritic mark to a toneless character based on index position.
+/// Adds a diacritic mark to a toneless character based on index position (case-preserving).
 ///
 /// * `chr` - The base character.
 /// * `mark` - The index of the mark in the character's mapping sequence.
 pub fn add_mark_to_toneless_char(chr: char, mark: u8) -> char {
-    if let Some(&s) = MARKS_MAPS.get(&chr) {
+    let lower = chr.to_lowercase().next().unwrap_or(chr);
+    if let Some(&s) = MARKS_MAPS.get(&lower) {
         let marks: Vec<char> = s.chars().collect();
         if (mark as usize) < marks.len() && marks[mark as usize] != '_' {
-            return marks[mark as usize];
+            let res = marks[mark as usize];
+            if chr.is_uppercase() {
+                return res.to_uppercase().next().unwrap_or(res);
+            }
+            return res;
         }
     }
     chr
@@ -114,9 +130,9 @@ pub fn add_mark_to_char(chr: char, mark: u8) -> char {
     add_tone_to_char(marked_toneless, tone)
 }
 
-/// Checks if a character is an ASCII alphabetic letter (a-z, A-Z).
+/// Checks if a character is an alphabetic letter (Unicode-aware).
 pub fn is_alpha(c: char) -> bool {
-    c.is_ascii_alphabetic()
+    c.is_alphabetic()
 }
 
 /// Finds the tone index (0 to 5) from a Vietnamese vowel.
@@ -130,7 +146,7 @@ pub fn find_tone_from_char(chr: char) -> u8 {
     }
 }
 
-/// Applies a tone index (0 to 5) to a Vietnamese vowel while keeping its base mark.
+/// Applies a tone index (0 to 5) to a Vietnamese vowel while keeping its base mark (case-preserving).
 ///
 /// * `chr` - The vowel to modify.
 /// * `tone` - The tone index (0 for normal/none, 1 for acute/sắc, 2 for grave/huyền, 3 for ask/hỏi, 4 for tilde/ngã, 5 for heavy/nặng).
@@ -140,7 +156,11 @@ pub fn add_tone_to_char(chr: char, tone: u8) -> char {
         let offset = tone as isize - current_tone as isize;
         let new_pos = (pos as isize + offset) as usize;
         if new_pos < VOWELS.len() {
-            return VOWELS[new_pos];
+            let res = VOWELS[new_pos];
+            if chr.is_uppercase() {
+                return res.to_uppercase().next().unwrap_or(res);
+            }
+            return res;
         }
     }
     chr

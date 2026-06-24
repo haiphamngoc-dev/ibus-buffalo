@@ -59,8 +59,8 @@ install:
 	install -m 644 buffalo.xml $(DESTDIR)$(ibus_dir)/component/buffalo.xml
 
 	# Install icons (reuse ibus-bamboo icons for now)
-	if [ -d ../icons ]; then \
-		cp -R ../icons/* $(DESTDIR)$(engine_dir)/icons/; \
+	if [ -d ./icons ]; then \
+		cp -R ./icons/* $(DESTDIR)$(engine_dir)/icons/; \
 	fi
 
 	# Install desktop entry

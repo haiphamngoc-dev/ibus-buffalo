@@ -21,6 +21,14 @@ fn test_telex_basic() {
     assert_eq!(type_word(&mut engine, "w"), "ư");
     assert_eq!(type_word(&mut engine, "oo"), "ô");
     assert_eq!(type_word(&mut engine, "ow"), "ơ");
+    assert_eq!(type_word(&mut engine, "["), "ơ");
+    assert_eq!(type_word(&mut engine, "[["), "[");
+    assert_eq!(type_word(&mut engine, "]"), "ư");
+    assert_eq!(type_word(&mut engine, "]]"), "]");
+    assert_eq!(type_word(&mut engine, "{"), "Ơ");
+    assert_eq!(type_word(&mut engine, "{{"), "{");
+    assert_eq!(type_word(&mut engine, "}"), "Ư");
+    assert_eq!(type_word(&mut engine, "}}"), "}");
 }
 
 #[test]

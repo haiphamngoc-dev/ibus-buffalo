@@ -132,8 +132,8 @@ lazy_static::lazy_static! {
         telex.insert("d", "D_Đ");
         telex.insert("]", "__ư");
         telex.insert("[", "__ơ");
-        telex.insert("}", "_Ư");
-        telex.insert("{", "_Ơ");
+        telex.insert("}", "__Ư");
+        telex.insert("{", "__Ơ");
         m.insert("Telex", telex);
 
         // VNI Layout

@@ -1050,7 +1050,9 @@ pub fn extract_last_word_start(composition: &[Transformation], effect_keys: &[ch
             continue;
         }
         let c = canvas[0];
-        if !is_alpha(c) && !effect_keys.contains(&c) {
+        let not_alpha = !is_alpha(c);
+        let not_contained = !effect_keys.contains(&c);
+        if not_alpha && not_contained {
             return i + 1;
         }
     }

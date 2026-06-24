@@ -190,7 +190,8 @@ pub fn new_ibus_property(
 pub fn get_prop_list(config: &Config) -> IBusPropList {
     let mut properties = Vec::new();
 
-    let about_prop = new_ibus_property("about", 0, "IBus Buffalo", "gtk-about", 0, None);
+    let about_label = format!("IBus Buffalo v{}", env!("CARGO_PKG_VERSION"));
+    let about_prop = new_ibus_property("about", 0, &about_label, "gtk-about", 0, None);
     properties.push(OwnedValue::try_from(about_prop).unwrap());
 
     let mut im_subprops = Vec::new();

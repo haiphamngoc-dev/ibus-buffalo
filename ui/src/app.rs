@@ -38,7 +38,7 @@ impl SimpleComponent for App {
 
     view! {
         gtk::Window {
-            set_title: Some("IBus Buffalo - Cấu hình"),
+            set_title: Some(&format!("IBus Buffalo v{} - Cấu hình", env!("CARGO_PKG_VERSION"))),
             set_resizable: false,
 
             gtk::Box {

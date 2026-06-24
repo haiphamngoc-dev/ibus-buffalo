@@ -15,7 +15,7 @@ pub mod utils;
 pub mod x11_helper;
 
 // Re-export configuration interface
-pub use config::{Config, load_config, save_config};
+pub use config::{Config, load_config, load_macro_table, save_config};
 
 // Re-export D-Bus IBus compatible types
 pub use dbus_types::{

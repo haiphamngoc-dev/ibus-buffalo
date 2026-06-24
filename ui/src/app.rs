@@ -22,6 +22,10 @@ pub enum Msg {
     InputMethodChanged(u32),
     /// Triggered when a checkbox for an engine flag is toggled.
     ToggleFlag(u32, bool),
+    /// Triggered when the shorthand checkbox is toggled.
+    ToggleMacro(bool),
+    /// Opens the shorthand text file for editing.
+    EditMacroFile,
     /// Opens the project help page in the browser.
     ShowHelp,
     /// Opens the project about page in the browser.
@@ -152,6 +156,27 @@ impl SimpleComponent for App {
                                 sender.input(Msg::ToggleFlag(ESTD_TONE_STYLE, btn.is_active()));
                             }
                         },
+
+                        gtk::Box {
+                            set_orientation: gtk::Orientation::Horizontal,
+                            set_spacing: 12,
+
+                            #[name = "enable_macro"]
+                            gtk::CheckButton {
+                                set_label: Some("Cho phép gõ tắt (Shorthand)"),
+                                set_active: model.config.enable_macro,
+                                set_hexpand: true,
+                                connect_toggled[sender] => move |btn| {
+                                    sender.input(Msg::ToggleMacro(btn.is_active()));
+                                }
+                            },
+
+                            gtk::Button {
+                                set_label: "Bảng gõ tắt...",
+                                add_css_class: "btn-normal",
+                                connect_clicked => Msg::EditMacroFile,
+                            }
+                        },
                     }
                 },
 
@@ -248,6 +273,23 @@ impl SimpleComponent for App {
                 let _ = std::process::Command::new("xdg-open")
                     .arg("https://github.com/haiphamngoc-dev/ibus-buffalo")
                     .spawn();
+            }
+            Msg::ToggleMacro(active) => {
+                self.config.enable_macro = active;
+                let _ = save_config(&self.config);
+            }
+            Msg::EditMacroFile => {
+                let dir = ibus_buffalo::get_user_config_dir().join("ibus-buffalo");
+                let _ = std::fs::create_dir_all(&dir);
+                let path = dir.join("macro.txt");
+                if !path.exists() {
+                    let default_content = "# Bảng gõ tắt (Shorthand table) cho IBus Buffalo\n\
+                                           # Định dạng: phím_tắt:từ_mở_rộng (Ví dụ: vn:Việt Nam)\n\
+                                           # Các dòng bắt đầu bằng '#' hoặc dòng trống sẽ được bỏ qua.\n\n\
+                                           vn:Việt Nam\n";
+                    let _ = std::fs::write(&path, default_content);
+                }
+                let _ = std::process::Command::new("xdg-open").arg(path).spawn();
             }
             Msg::Close => {
                 let _ = save_config(&self.config);

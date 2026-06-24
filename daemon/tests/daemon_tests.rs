@@ -1,6 +1,6 @@
 use ibus_buffalo::{
     BACKSPACE_FORWARDING_IM, PREEDIT_IM, SURROUNDING_TEXT_IM, get_offset_runes, is_backspace_mode,
-    is_modifier_key, load_config, new_ibus_text, save_config,
+    is_modifier_key, load_config, load_macro_table, new_ibus_text, save_config,
 };
 
 #[test]
@@ -51,7 +51,7 @@ fn test_new_ibus_text() {
 }
 
 #[test]
-fn test_config_load_save() {
+fn test_config_and_macro_loading() {
     let temp_dir = std::env::temp_dir().join(format!(
         "ibus-buffalo-test-{}",
         std::time::SystemTime::now()
@@ -67,6 +67,7 @@ fn test_config_load_save() {
         std::env::set_var("XDG_CONFIG_HOME", &temp_dir);
     }
 
+    // 1. Test configuration load/save
     let mut config = load_config();
     assert_eq!(config.input_method, "Telex");
 
@@ -75,6 +76,28 @@ fn test_config_load_save() {
 
     let reloaded = load_config();
     assert_eq!(reloaded.input_method, "VNI");
+
+    // 2. Test macro table loading
+    let macro_dir = temp_dir.join("ibus-buffalo");
+    std::fs::create_dir_all(&macro_dir).unwrap();
+    let macro_file = macro_dir.join("macro.txt");
+
+    let content = "
+# Comment line
+  # Another comment
+
+vn : Việt Nam
+  ad :  anh dũng
+invalid_line_no_colon
+empty_val:
+:empty_key
+";
+    std::fs::write(&macro_file, content).unwrap();
+
+    let table = load_macro_table();
+    assert_eq!(table.len(), 2);
+    assert_eq!(table.get("vn").unwrap(), "Việt Nam");
+    assert_eq!(table.get("ad").unwrap(), "anh dũng");
 
     let _ = std::fs::remove_dir_all(&temp_dir);
 }

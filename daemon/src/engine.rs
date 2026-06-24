@@ -355,12 +355,32 @@ impl IBusEngine {
                         old
                     };
 
-                    let encoded_old = encode(&charset, &old_text);
-                    let committed = format!("{}{}", encoded_old, c);
+                    let mut final_text = old_text.clone();
+                    let mut is_macro = false;
+                    if _config.enable_macro {
+                        let macro_table = crate::config::load_macro_table();
+                        if let Some(replaced) = macro_table.get(&old_text) {
+                            final_text = replaced.clone();
+                            is_macro = true;
+                        }
+                    }
+
+                    let encoded_final = encode(&charset, &final_text);
+                    let committed = format!("{}{}", encoded_final, c);
+
                     if is_backspace_mode(input_mode) {
-                        debug_println!("--> backspace_mode committing: '{}'", c);
-                        let ibus_text = new_ibus_text(&c.to_string());
-                        let _ = Self::commit_text(signal_emitter, Value::from(ibus_text)).await;
+                        if is_macro {
+                            let encoded_old = encode(&charset, &old_text);
+                            let old_len = encoded_old.chars().count();
+                            debug_println!("--> macro replacement backspaces: {}", old_len);
+                            Self::send_backspace(signal_emitter, input_mode, old_len).await;
+                            let ibus_text = new_ibus_text(&committed);
+                            let _ = Self::commit_text(signal_emitter, Value::from(ibus_text)).await;
+                        } else {
+                            debug_println!("--> backspace_mode committing: '{}'", c);
+                            let ibus_text = new_ibus_text(&c.to_string());
+                            let _ = Self::commit_text(signal_emitter, Value::from(ibus_text)).await;
+                        }
                         let mut lt = self.last_text.lock().unwrap();
                         lt.clear();
                     } else {

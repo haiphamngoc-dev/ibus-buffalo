@@ -19,6 +19,8 @@ pub struct Config {
     pub vietnamese_layout: String,
     /// Output charset encoding (e.g., "Unicode", "TCVN3", "VNI", "VIQR").
     pub charset: String,
+    /// Toggle to enable or disable shorthand (macro) replacements.
+    pub enable_macro: bool,
 }
 
 impl Default for Config {
@@ -30,6 +32,7 @@ impl Default for Config {
             input_mode_mapping: HashMap::new(),
             vietnamese_layout: "Telex".to_string(),
             charset: "Unicode".to_string(),
+            enable_macro: false,
         }
     }
 }
@@ -58,4 +61,28 @@ pub fn save_config(cfg: &Config) -> std::io::Result<()> {
     let content = toml::to_string_pretty(cfg).unwrap();
     fs::write(path, content)?;
     Ok(())
+}
+
+/// Loads shorthand replacements from `$XDG_CONFIG_HOME/ibus-buffalo/macro.txt`.
+/// Lines starting with '#' or empty lines are ignored.
+/// Format is `shorthand:replacement_text`.
+pub fn load_macro_table() -> HashMap<String, String> {
+    let mut table = HashMap::new();
+    let path = get_user_config_dir().join("ibus-buffalo").join("macro.txt");
+    if let Ok(content) = fs::read_to_string(&path) {
+        for line in content.lines() {
+            let line = line.trim();
+            if line.is_empty() || line.starts_with('#') {
+                continue;
+            }
+            if let Some(pos) = line.find(':') {
+                let key = line[..pos].trim().to_string();
+                let val = line[pos + 1..].trim().to_string();
+                if !key.is_empty() && !val.is_empty() {
+                    table.insert(key, val);
+                }
+            }
+        }
+    }
+    table
 }

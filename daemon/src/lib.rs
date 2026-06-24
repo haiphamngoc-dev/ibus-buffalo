@@ -406,20 +406,42 @@ pub fn get_prop_list(config: &Config) -> IBusPropList {
     properties.push(OwnedValue::try_from(about_prop).unwrap());
 
     let is_vi = config.input_method != "English";
-    let eng_state = if is_vi { 1 } else { 0 };
-    let mode_prop = new_ibus_property(
-        "mode_switch",
-        1,
-        if is_vi {
-            "Tiếng Việt (Buffalo)"
-        } else {
-            "Tiếng Anh (English)"
-        },
-        if is_vi { "vi" } else { "en" },
-        eng_state,
+
+    // Typing mode submenu
+    let mut mode_subprops = Vec::new();
+    let prop_vi = new_ibus_property(
+        "Mode::Vietnamese",
+        2,
+        "Tiếng Việt",
+        "",
+        if is_vi { 1 } else { 0 },
         None,
     );
-    properties.push(OwnedValue::try_from(mode_prop).unwrap());
+    mode_subprops.push(OwnedValue::try_from(prop_vi).unwrap());
+
+    let prop_en = new_ibus_property(
+        "Mode::English",
+        2,
+        "Tiếng Anh",
+        "",
+        if !is_vi { 1 } else { 0 },
+        None,
+    );
+    mode_subprops.push(OwnedValue::try_from(prop_en).unwrap());
+
+    let mode_menu = new_ibus_property(
+        "mode_menu",
+        3,
+        "Chế độ gõ",
+        if is_vi { "vi" } else { "en" },
+        0,
+        Some(IBusPropList {
+            name: "IBusPropList".to_string(),
+            attachments: HashMap::new(),
+            properties: mode_subprops,
+        }),
+    );
+    properties.push(OwnedValue::try_from(mode_menu).unwrap());
 
     let mut im_subprops = Vec::new();
     let ims = vec!["Telex", "VNI"];
@@ -682,13 +704,16 @@ impl IBusEngine {
 
         let mut config = load_config();
 
-        if prop_name == "mode_switch" {
-            if config.input_method == "English" {
-                config.input_method = config.vietnamese_layout.clone();
-            } else {
-                config.input_method = "English".to_string();
+        if prop_name.starts_with("Mode::") {
+            if prop_state == 1 {
+                let mode = &prop_name["Mode::".len()..];
+                if mode == "Vietnamese" {
+                    config.input_method = config.vietnamese_layout.clone();
+                } else if mode == "English" {
+                    config.input_method = "English".to_string();
+                }
+                let _ = save_config(&config);
             }
-            let _ = save_config(&config);
         } else if prop_name.starts_with("InputMethod::") {
             if prop_state == 1 {
                 let im = &prop_name["InputMethod::".len()..];

@@ -188,6 +188,7 @@ name = "buffalo-ui"
 version = "0.1.0"
 dependencies = [
  "buffalo-core",
+ "ibus-buffalo",
  "relm4",
  "serde",
  "toml",

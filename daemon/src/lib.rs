@@ -662,6 +662,13 @@ impl IBusEngine {
             "PropertyActivate: name = {}, state = {}",
             prop_name, prop_state
         );
+
+        if prop_name == "about" {
+            let ui_path = get_ui_executable_path();
+            let _ = std::process::Command::new(ui_path).spawn();
+            return;
+        }
+
         let mut config = load_config();
 
         if prop_name == "mode_switch" {
@@ -1119,4 +1126,20 @@ pub async fn run_daemon() -> Result<(), Box<dyn std::error::Error>> {
     std::future::pending::<()>().await;
 
     Ok(())
+}
+
+/// Helper to determine the path of the UI executable.
+///
+/// It first checks the directory of the currently running daemon executable
+/// (useful for running from target/debug or target/release during development).
+/// If not found, it falls back to the default installation path `/usr/lib/ibus-buffalo/buffalo-ui`.
+pub fn get_ui_executable_path() -> PathBuf {
+    if let Ok(mut exe_path) = std::env::current_exe() {
+        exe_path.pop(); // Remove the executable name, leaving the parent directory
+        let local_ui = exe_path.join("buffalo-ui");
+        if local_ui.exists() {
+            return local_ui;
+        }
+    }
+    PathBuf::from("/usr/lib/ibus-buffalo/buffalo-ui")
 }

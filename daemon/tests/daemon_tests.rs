@@ -1,7 +1,22 @@
 use ibus_buffalo::{
     BACKSPACE_FORWARDING_IM, PREEDIT_IM, SURROUNDING_TEXT_IM, get_offset_runes, is_backspace_mode,
-    load_config, new_ibus_text, save_config,
+    is_modifier_key, load_config, new_ibus_text, save_config,
 };
+
+#[test]
+fn test_is_modifier_key() {
+    assert!(is_modifier_key(0xffe1)); // Shift_L
+    assert!(is_modifier_key(0xffe3)); // Control_L
+    assert!(is_modifier_key(0xffe9)); // Alt_L
+    assert!(is_modifier_key(0xffeb)); // Super_L
+    assert!(is_modifier_key(0xfe03)); // ISO_Level3_Shift
+    assert!(is_modifier_key(0xff7e)); // Mode_switch
+
+    assert!(!is_modifier_key(0x0020)); // Space
+    assert!(!is_modifier_key(0x0061)); // a
+    assert!(!is_modifier_key(0xff08)); // Backspace
+    assert!(!is_modifier_key(0xff0d)); // Return
+}
 
 #[test]
 fn test_is_backspace_mode() {

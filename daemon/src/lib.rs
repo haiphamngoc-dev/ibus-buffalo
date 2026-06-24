@@ -182,6 +182,8 @@ pub const IBUS_LOCK_MASK: u32 = 1 << 1;
 pub const IBUS_CONTROL_MASK: u32 = 1 << 2;
 /// Mask representing the Alt/Mod1 key state in IBus.
 pub const IBUS_MOD1_MASK: u32 = 1 << 3;
+/// Mask representing the Mod4/Super key state in IBus.
+pub const IBUS_MOD4_MASK: u32 = 1 << 6;
 /// Mask representing the Super key state in IBus.
 pub const IBUS_SUPER_MASK: u32 = 1 << 26;
 /// Mask representing the Hyper key state in IBus.
@@ -227,6 +229,15 @@ pub fn is_backspace_mode(im: i32) -> bool {
             | FORWARD_AS_COMMIT_IM
             | XTEST_FAKE_KEY_EVENT_IM
     )
+}
+
+/// Checks if a keysym represents a modifier key itself.
+pub fn is_modifier_key(keyval: u32) -> bool {
+    // Standard X11 modifier keysyms:
+    // 0xffe1 - 0xffee: Shift, Control, Caps_Lock, Shift_Lock, Meta, Alt, Super, Hyper
+    // 0xfe03: ISO_Level3_Shift (AltGr)
+    // 0xff7e: Mode_switch
+    (keyval >= 0xffe1 && keyval <= 0xffee) || keyval == 0xfe03 || keyval == 0xff7e
 }
 
 /// Configuration for the IBus Buffalo input method.
@@ -798,6 +809,14 @@ impl IBusEngine {
             return false;
         }
 
+        if is_modifier_key(keyval) {
+            debug_println!(
+                "--> handle_key ignored (modifier key itself: keyval={:#x})",
+                keyval
+            );
+            return false;
+        }
+
         let _config = load_config();
         if _config.input_method == "English" {
             debug_println!("--> English mode active, bypassing");
@@ -817,6 +836,7 @@ impl IBusEngine {
         let has_modifiers = (state
             & (IBUS_CONTROL_MASK
                 | IBUS_MOD1_MASK
+                | IBUS_MOD4_MASK
                 | IBUS_SUPER_MASK
                 | IBUS_HYPER_MASK
                 | IBUS_META_MASK))

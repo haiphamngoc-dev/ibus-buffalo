@@ -175,5 +175,6 @@ pub fn has_any_vietnamese_rune(word: &str) -> bool {
 
 /// Checks if a string contains any Vietnamese vowels.
 pub fn has_any_vietnamese_vowel(word: &str) -> bool {
-    word.chars().any(|c| is_vowel(c.to_lowercase().next().unwrap_or(c)))
+    word.chars()
+        .any(|c| is_vowel(c.to_lowercase().next().unwrap_or(c)))
 }

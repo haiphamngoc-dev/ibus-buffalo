@@ -16,8 +16,6 @@ use std::str::FromStr;
 struct App {
     /// The application configuration loaded from and saved to disk.
     config: Config,
-    /// Specifies if the advanced options section is currently expanded.
-    expanded: bool,
 }
 
 /// Messages representing user interaction events in the UI.
@@ -29,8 +27,8 @@ enum Msg {
     InputMethodChanged(u32),
     /// Triggered when a checkbox for an engine flag is toggled.
     ToggleFlag(u32, bool),
-    /// Toggles the expansion state of the advanced options frame.
-    ToggleExpand,
+    /// Opens the project help page in the browser.
+    ShowHelp,
     /// Opens the project about page in the browser.
     ShowAbout,
     /// Closes the configuration window and exits successfully.
@@ -126,7 +124,6 @@ impl SimpleComponent for App {
                 gtk::Frame {
                     set_label: Some("Tùy chọn nâng cao"),
                     add_css_class: "control-frame",
-                    set_visible: model.expanded,
                     set_hexpand: true,
 
                     gtk::Box {
@@ -173,9 +170,9 @@ impl SimpleComponent for App {
                     set_hexpand: true,
 
                     gtk::Button {
-                        set_label: if model.expanded { "Thu nhỏ" } else { "Mở rộng" },
+                        set_label: "Hướng dẫn",
                         add_css_class: "btn-normal",
-                        connect_clicked => Msg::ToggleExpand,
+                        connect_clicked => Msg::ShowHelp,
                     },
 
                     gtk::Button {
@@ -201,10 +198,7 @@ impl SimpleComponent for App {
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
         let config = load_config();
-        let model = App {
-            config,
-            expanded: false,
-        };
+        let model = App { config };
 
         // Define premium custom styling rules using GTK CSS
         let provider = gtk::CssProvider::new();
@@ -309,8 +303,10 @@ impl SimpleComponent for App {
                 }
                 let _ = save_config(&self.config);
             }
-            Msg::ToggleExpand => {
-                self.expanded = !self.expanded;
+            Msg::ShowHelp => {
+                let _ = std::process::Command::new("xdg-open")
+                    .arg("https://github.com/haiphamngoc-dev/ibus-buffalo#readme")
+                    .spawn();
             }
             Msg::ShowAbout => {
                 let _ = std::process::Command::new("xdg-open")

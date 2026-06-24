@@ -717,9 +717,9 @@ pub fn get_canvas(composition: &[Transformation], mode: u32) -> Vec<char> {
         }
 
         if (mode & LOWER_CASE) != 0 {
-            chr = chr.to_ascii_lowercase();
+            chr = chr.to_lowercase().next().unwrap_or(chr);
         } else if appending_trans.is_upper_case {
-            chr = chr.to_ascii_uppercase();
+            chr = chr.to_uppercase().next().unwrap_or(chr);
         }
 
         canvas.push(chr);

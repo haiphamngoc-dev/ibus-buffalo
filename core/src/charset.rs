@@ -170,10 +170,10 @@ pub fn is_vietnamese_rune(lower_key: char) -> bool {
 /// Checks if a string contains any Vietnamese runes.
 pub fn has_any_vietnamese_rune(word: &str) -> bool {
     word.chars()
-        .any(|c| is_vietnamese_rune(c.to_ascii_lowercase()))
+        .any(|c| is_vietnamese_rune(c.to_lowercase().next().unwrap_or(c)))
 }
 
 /// Checks if a string contains any Vietnamese vowels.
 pub fn has_any_vietnamese_vowel(word: &str) -> bool {
-    word.chars().any(|c| is_vowel(c.to_ascii_lowercase()))
+    word.chars().any(|c| is_vowel(c.to_lowercase().next().unwrap_or(c)))
 }

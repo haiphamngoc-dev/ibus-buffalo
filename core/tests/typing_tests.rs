@@ -24,6 +24,19 @@ fn test_telex_basic() {
 }
 
 #[test]
+fn test_telex_uppercase() {
+    let telex = get_input_method("Telex").expect("Failed to load Telex layout");
+    let mut engine = Engine::new(telex, ESTD_FLAGS);
+
+    assert_eq!(type_word(&mut engine, "DD"), "Đ");
+    assert_eq!(type_word(&mut engine, "AA"), "Â");
+    assert_eq!(type_word(&mut engine, "AW"), "Ă");
+    assert_eq!(type_word(&mut engine, "W"), "Ư");
+    assert_eq!(type_word(&mut engine, "OO"), "Ô");
+    assert_eq!(type_word(&mut engine, "OW"), "Ơ");
+}
+
+#[test]
 fn test_telex_words() {
     let telex = get_input_method("Telex").expect("Failed to load Telex layout");
     let mut engine = Engine::new(telex, ESTD_FLAGS);

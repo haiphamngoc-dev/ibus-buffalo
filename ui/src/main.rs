@@ -25,6 +25,8 @@ enum Msg {
     CharsetChanged(u32),
     /// Triggered when the user selects a different input method (e.g., Telex, VNI) from the combo box.
     InputMethodChanged(u32),
+    /// Triggered when the user selects a different toggle hotkey from the combo box.
+    HotkeyChanged(u32),
     /// Triggered when a checkbox for an engine flag is toggled.
     ToggleFlag(u32, bool),
     /// Closes the configuration window and exits successfully.
@@ -111,6 +113,31 @@ impl SimpleComponent for App {
                                 connect_changed[sender] => move |combo| {
                                     let idx = combo.active().unwrap_or(0);
                                     sender.input(Msg::InputMethodChanged(idx));
+                                }
+                            },
+                        },
+
+                        // Hotkey selection dropdown row
+                        gtk::Box {
+                            set_orientation: gtk::Orientation::Horizontal,
+                            set_spacing: 12,
+
+                            gtk::Label {
+                                set_text: "Phím chuyển:",
+                                set_halign: gtk::Align::Start,
+                                set_width_chars: 10,
+                                add_css_class: "field-label",
+                            },
+
+                            #[name = "hotkey_combo"]
+                            gtk::ComboBoxText {
+                                set_hexpand: true,
+                                append_text: "Ctrl + Shift",
+                                append_text: "Alt + X",
+
+                                connect_changed[sender] => move |combo| {
+                                    let idx = combo.active().unwrap_or(0);
+                                    sender.input(Msg::HotkeyChanged(idx));
                                 }
                             },
                         },
@@ -300,6 +327,14 @@ impl SimpleComponent for App {
         };
         widgets.im_combo.set_active(Some(im_idx));
 
+        // Initialize hotkey dropdown selection based on config
+        let hotkey_idx = match model.config.hotkey.as_str() {
+            "Ctrl+Shift" => 0,
+            "Alt+X" => 1,
+            _ => 0,
+        };
+        widgets.hotkey_combo.set_active(Some(hotkey_idx));
+
         // Initialize checkboxes based on config flags bitmask
         widgets
             .spell_check
@@ -332,6 +367,15 @@ impl SimpleComponent for App {
                 };
                 self.config.input_method = im.to_string();
                 self.config.vietnamese_layout = im.to_string();
+                let _ = save_config(&self.config);
+            }
+            Msg::HotkeyChanged(idx) => {
+                let hk = match idx {
+                    0 => "Ctrl+Shift",
+                    1 => "Alt+X",
+                    _ => "Ctrl+Shift",
+                };
+                self.config.hotkey = hk.to_string();
                 let _ = save_config(&self.config);
             }
             Msg::ToggleFlag(flag, active) => {

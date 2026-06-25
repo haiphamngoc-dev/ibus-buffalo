@@ -263,7 +263,9 @@ impl IBusEngine {
         let mut input_mode = _config.default_input_mode;
         {
             let wm_class = self.wm_class.lock().unwrap();
-            if let Some(&mode) = _config.input_mode_mapping.get(&*wm_class) {
+            if is_terminal_app(&wm_class) {
+                input_mode = PREEDIT_IM;
+            } else if let Some(&mode) = _config.input_mode_mapping.get(&*wm_class) {
                 input_mode = mode;
             }
         }
@@ -503,3 +505,16 @@ impl IBusEngine {
         }
     }
 }
+
+fn is_terminal_app(wm_class: &str) -> bool {
+    let wm_lower = wm_class.to_lowercase();
+    wm_lower.contains("terminal")
+        || wm_lower == "alacritty"
+        || wm_lower == "kitty"
+        || wm_lower == "wezterm"
+        || wm_lower == "konsole"
+        || wm_lower == "xterm"
+        || wm_lower == "uxterm"
+        || wm_lower == "tilix"
+}
+

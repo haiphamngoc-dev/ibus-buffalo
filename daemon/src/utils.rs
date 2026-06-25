@@ -37,16 +37,6 @@ pub const IBUS_ESCAPE: u32 = 0xff1b;
 pub const PREEDIT_IM: i32 = 1;
 /// Surrounding Text Input Mode: edit surrounding characters directly.
 pub const SURROUNDING_TEXT_IM: i32 = 2;
-/// Backspace Forwarding Input Mode: delete/retype by forwarding backspace keypress events.
-pub const BACKSPACE_FORWARDING_IM: i32 = 3;
-/// Shift Left Forwarding Input Mode: delete by simulating Shift+Left Arrow selections.
-pub const SHIFT_LEFT_FORWARDING_IM: i32 = 4;
-/// Forward as Commit Input Mode: commit text by forwarding synthetic keyboard events.
-pub const FORWARD_AS_COMMIT_IM: i32 = 5;
-/// XTest Fake Key Event Input Mode: simulate X11 keyboard events directly.
-pub const XTEST_FAKE_KEY_EVENT_IM: i32 = 6;
-/// US Keyboard layout mode (no Vietnamese processing).
-pub const US_IM: i32 = 7;
 
 /// Retrieves the unique machine ID from `/var/lib/dbus/machine-id` or `/etc/machine-id`.
 /// Returns an empty string if it cannot be read.
@@ -114,7 +104,7 @@ pub fn get_ibus_address() -> Option<String> {
 
 /// Determines whether the input mode uses simulated backspace inputs to edit text.
 pub fn is_backspace_mode(im: i32) -> bool {
-    im == SURROUNDING_TEXT_IM || im == BACKSPACE_FORWARDING_IM
+    im == SURROUNDING_TEXT_IM
 }
 
 /// Returns true if the key event represents a modifier key (Shift, Ctrl, Alt, Super, etc.).

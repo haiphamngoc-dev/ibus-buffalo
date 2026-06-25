@@ -1,15 +1,13 @@
 //! X11 Helper Utilities for IBus Buffalo.
 //!
 //! This module provides functions for interacting with the X Window System (X11) via the `xlib`
-//! and `xtest` libraries. It includes utilities to ignore X11 errors, retrieve properties of the active
-//! focused window (such as window class or GTK application ID), and simulate keyboard inputs like
-//! Backspace and Shift+Left Arrow key events when standard input method methods are insufficient.
+//! library. It includes utilities to ignore X11 errors and retrieve properties of the active
+//! focused window (such as window class or GTK application ID).
 
 use std::ffi::CString;
 use std::os::raw::{c_int, c_uchar, c_uint, c_ulong};
 use std::ptr;
 use x11::xlib;
-use x11::xtest;
 
 /// A custom error handler that ignores X11 errors.
 ///
@@ -157,73 +155,5 @@ pub fn x11_get_focus_window_class() -> Option<String> {
         }
         xlib::XCloseDisplay(display);
         wm_class.map(|s| s.replace('"', ""))
-    }
-}
-
-/// Simulates pressing the Backspace key `n` times using the XTest extension.
-///
-/// * `n` - Number of Backspace keypresses to simulate.
-/// * `timeout_ms` - Delay in milliseconds between each keypress event.
-pub fn x11_send_backspace(n: usize, timeout_ms: u64) {
-    unsafe {
-        let display = xlib::XOpenDisplay(ptr::null());
-        if !display.is_null() {
-            let backspace_str = CString::new("BackSpace").unwrap();
-            let keysym = xlib::XStringToKeysym(backspace_str.as_ptr());
-            let keycode = xlib::XKeysymToKeycode(display, keysym);
-            for _ in 0..n {
-                xtest::XTestFakeKeyEvent(display, keycode as c_uint, xlib::True, 0);
-                xtest::XTestFakeKeyEvent(display, keycode as c_uint, xlib::False, 0);
-                xlib::XFlush(display);
-                if timeout_ms > 0 {
-                    std::thread::sleep(std::time::Duration::from_millis(timeout_ms));
-                }
-            }
-            xlib::XCloseDisplay(display);
-        }
-    }
-}
-
-/// Simulates pressing Shift + Left Arrow `n` times using the XTest extension.
-/// This is typically used to select text backwards.
-///
-/// * `n` - Number of times to press Left Arrow while Shift is held down.
-/// * `shift_right` - If true, holds down the right Shift key; otherwise, the left Shift key.
-/// * `timeout_ms` - Delay in milliseconds between each Left Arrow keypress.
-pub fn x11_send_shift_left(n: usize, shift_right: bool, timeout_ms: u64) {
-    unsafe {
-        let display = xlib::XOpenDisplay(ptr::null());
-        if !display.is_null() {
-            let shift_l_str = CString::new("Shift_L").unwrap();
-            let shift_r_str = CString::new("Shift_R").unwrap();
-            let left_str = CString::new("Left").unwrap();
-
-            let shift_l_keysym = xlib::XStringToKeysym(shift_l_str.as_ptr());
-            let shift_r_keysym = xlib::XStringToKeysym(shift_r_str.as_ptr());
-            let left_keysym = xlib::XStringToKeysym(left_str.as_ptr());
-
-            let shift_l_code = xlib::XKeysymToKeycode(display, shift_l_keysym);
-            let shift_r_code = xlib::XKeysymToKeycode(display, shift_r_keysym);
-            let left_code = xlib::XKeysymToKeycode(display, left_keysym);
-
-            let modifier_code = if shift_right {
-                shift_r_code
-            } else {
-                shift_l_code
-            };
-
-            xtest::XTestFakeKeyEvent(display, modifier_code as c_uint, xlib::True, 0);
-            for _ in 0..n {
-                xtest::XTestFakeKeyEvent(display, left_code as c_uint, xlib::True, 0);
-                xtest::XTestFakeKeyEvent(display, left_code as c_uint, xlib::False, 0);
-                xlib::XFlush(display);
-                if timeout_ms > 0 {
-                    std::thread::sleep(std::time::Duration::from_millis(timeout_ms));
-                }
-            }
-            xtest::XTestFakeKeyEvent(display, modifier_code as c_uint, xlib::False, 0);
-            xlib::XFlush(display);
-            xlib::XCloseDisplay(display);
-        }
     }
 }

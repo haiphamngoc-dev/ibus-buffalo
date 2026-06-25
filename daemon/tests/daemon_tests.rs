@@ -1,6 +1,6 @@
 use ibus_buffalo::{
-    BACKSPACE_FORWARDING_IM, PREEDIT_IM, SURROUNDING_TEXT_IM, get_offset_runes, is_backspace_mode,
-    is_modifier_key, load_config, load_macro_table, new_ibus_text, save_config,
+    PREEDIT_IM, SURROUNDING_TEXT_IM, get_offset_runes, is_backspace_mode, is_modifier_key,
+    load_config, load_macro_table, new_ibus_text, save_config,
 };
 
 #[test]
@@ -22,7 +22,6 @@ fn test_is_modifier_key() {
 fn test_is_backspace_mode() {
     assert!(!is_backspace_mode(PREEDIT_IM));
     assert!(is_backspace_mode(SURROUNDING_TEXT_IM));
-    assert!(is_backspace_mode(BACKSPACE_FORWARDING_IM));
 }
 
 #[test]

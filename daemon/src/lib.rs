@@ -32,10 +32,9 @@ pub use server::run_daemon;
 
 // Re-export utility constants and helpers
 pub use utils::{
-    BACKSPACE_FORWARDING_IM, FORWARD_AS_COMMIT_IM, IBUS_BACKSPACE, IBUS_CONTROL_MASK, IBUS_ESCAPE,
-    IBUS_HYPER_MASK, IBUS_LEFT, IBUS_LOCK_MASK, IBUS_META_MASK, IBUS_MOD1_MASK, IBUS_MOD4_MASK,
-    IBUS_RELEASE_MASK, IBUS_RETURN, IBUS_SHIFT_MASK, IBUS_SUPER_MASK, IBUS_TAB, PREEDIT_IM,
-    SHIFT_LEFT_FORWARDING_IM, SURROUNDING_TEXT_IM, US_IM, XTEST_FAKE_KEY_EVENT_IM,
-    get_ibus_address, get_local_machine_id, get_offset_runes, get_ui_executable_path,
-    get_user_config_dir, is_backspace_mode, is_modifier_key,
+    IBUS_BACKSPACE, IBUS_CONTROL_MASK, IBUS_ESCAPE, IBUS_HYPER_MASK, IBUS_LEFT, IBUS_LOCK_MASK,
+    IBUS_META_MASK, IBUS_MOD1_MASK, IBUS_MOD4_MASK, IBUS_RELEASE_MASK, IBUS_RETURN,
+    IBUS_SHIFT_MASK, IBUS_SUPER_MASK, IBUS_TAB, PREEDIT_IM, SURROUNDING_TEXT_IM, get_ibus_address,
+    get_local_machine_id, get_offset_runes, get_ui_executable_path, get_user_config_dir,
+    is_backspace_mode, is_modifier_key,
 };

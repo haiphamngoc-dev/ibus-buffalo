@@ -10,10 +10,9 @@ use zbus::zvariant::{OwnedValue, Value};
 use crate::config::{load_config, save_config};
 use crate::dbus_types::{get_prop_list, new_ibus_text};
 use crate::utils::{
-    BACKSPACE_FORWARDING_IM, FORWARD_AS_COMMIT_IM, IBUS_BACKSPACE, IBUS_CONTROL_MASK, IBUS_ESCAPE,
-    IBUS_HYPER_MASK, IBUS_LEFT, IBUS_LOCK_MASK, IBUS_META_MASK, IBUS_MOD1_MASK, IBUS_MOD4_MASK,
-    IBUS_RELEASE_MASK, IBUS_RETURN, IBUS_SHIFT_MASK, IBUS_SUPER_MASK, IBUS_TAB, PREEDIT_IM,
-    SHIFT_LEFT_FORWARDING_IM, SURROUNDING_TEXT_IM, XTEST_FAKE_KEY_EVENT_IM, get_focus_window_class,
+    IBUS_BACKSPACE, IBUS_CONTROL_MASK, IBUS_ESCAPE, IBUS_HYPER_MASK, IBUS_LOCK_MASK,
+    IBUS_META_MASK, IBUS_MOD1_MASK, IBUS_MOD4_MASK, IBUS_RELEASE_MASK, IBUS_RETURN,
+    IBUS_SUPER_MASK, IBUS_TAB, PREEDIT_IM, SURROUNDING_TEXT_IM, get_focus_window_class,
     get_offset_runes, get_ui_executable_path, is_backspace_mode, is_modifier_key,
 };
 
@@ -136,6 +135,13 @@ impl IBusEngine {
                 config.input_method = im.to_string();
                 let _ = save_config(&config);
             }
+        } else if prop_name.starts_with("InputMode::") {
+            if prop_state == 1 {
+                if let Ok(mode_val) = prop_name["InputMode::".len()..].parse::<i32>() {
+                    config.default_input_mode = mode_val;
+                    let _ = save_config(&config);
+                }
+            }
         } else if prop_name.starts_with("Charset::") {
             if prop_state == 1 {
                 let cs = &prop_name["Charset::".len()..];
@@ -254,7 +260,16 @@ impl IBusEngine {
             return false;
         }
 
-        let input_mode = PREEDIT_IM;
+        let mut input_mode = _config.default_input_mode;
+        {
+            let wm_class = self.wm_class.lock().unwrap();
+            if let Some(&mode) = _config.input_mode_mapping.get(&*wm_class) {
+                input_mode = mode;
+            }
+        }
+        if input_mode != PREEDIT_IM && input_mode != SURROUNDING_TEXT_IM {
+            input_mode = PREEDIT_IM;
+        }
         let charset =
             CharsetEncoding::from_str(&_config.charset).unwrap_or(CharsetEncoding::Unicode);
         debug_println!(
@@ -483,31 +498,6 @@ impl IBusEngine {
         match im_mode {
             SURROUNDING_TEXT_IM => {
                 let _ = Self::delete_surrounding_text(signal_emitter, -(n as i32), n as u32).await;
-            }
-            BACKSPACE_FORWARDING_IM | FORWARD_AS_COMMIT_IM => {
-                for _ in 0..n {
-                    let _ = Self::forward_key_event(signal_emitter, IBUS_BACKSPACE, 22, 0).await;
-                    let _ = Self::forward_key_event(
-                        signal_emitter,
-                        IBUS_BACKSPACE,
-                        22,
-                        IBUS_RELEASE_MASK,
-                    )
-                    .await;
-                }
-            }
-            SHIFT_LEFT_FORWARDING_IM => {
-                for _ in 0..n {
-                    let _ =
-                        Self::forward_key_event(signal_emitter, IBUS_LEFT, 113, IBUS_SHIFT_MASK)
-                            .await;
-                    let _ =
-                        Self::forward_key_event(signal_emitter, IBUS_LEFT, 113, IBUS_RELEASE_MASK)
-                            .await;
-                }
-            }
-            XTEST_FAKE_KEY_EVENT_IM => {
-                crate::x11_helper::x11_send_backspace(n, 10);
             }
             _ => {}
         }

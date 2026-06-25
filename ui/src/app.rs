@@ -102,11 +102,13 @@ impl SimpleComponent for App {
                         attach[1, 1, 1, 1] = &gtk::ComboBoxText {
                             set_hexpand: true,
                             append_text: "Telex",
+                            append_text: "Simple Telex",
                             append_text: "VNI",
 
                             set_active: Some(match model.config.input_method.as_str() {
                                 "Telex" => 0,
-                                "VNI" => 1,
+                                "Simple Telex" => 1,
+                                "VNI" => 2,
                                 _ => 0,
                             }),
 
@@ -250,7 +252,8 @@ impl SimpleComponent for App {
             Msg::InputMethodChanged(idx) => {
                 let im = match idx {
                     0 => "Telex",
-                    1 => "VNI",
+                    1 => "Simple Telex",
+                    2 => "VNI",
                     _ => "Telex",
                 };
                 self.config.input_method = im.to_string();

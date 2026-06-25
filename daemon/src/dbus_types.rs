@@ -195,7 +195,7 @@ pub fn get_prop_list(config: &Config) -> IBusPropList {
     properties.push(OwnedValue::try_from(about_prop).unwrap());
 
     let mut im_subprops = Vec::new();
-    let ims = vec!["Telex", "VNI"];
+    let ims = vec!["Telex", "Simple Telex", "VNI"];
     for im in ims {
         let state = if config.input_method == im { 1 } else { 0 };
         let prop = new_ibus_property(&format!("InputMethod::{}", im), 2, im, "", state, None);

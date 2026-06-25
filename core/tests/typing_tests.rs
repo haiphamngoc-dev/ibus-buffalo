@@ -76,6 +76,29 @@ fn test_telex_undo() {
     assert_eq!(type_word(&mut engine, "aas"), "ấ");
 }
 
+#[test]
+fn test_simple_telex_basic() {
+    let simple_telex =
+        get_input_method("Simple Telex").expect("Failed to load Simple Telex layout");
+    let mut engine = Engine::new(simple_telex, ESTD_FLAGS);
+
+    // Basic transformations (same as Telex)
+    assert_eq!(type_word(&mut engine, "dd"), "đ");
+    assert_eq!(type_word(&mut engine, "aa"), "â");
+    assert_eq!(type_word(&mut engine, "aw"), "ă");
+    assert_eq!(type_word(&mut engine, "oo"), "ô");
+    assert_eq!(type_word(&mut engine, "ow"), "ơ");
+    assert_eq!(type_word(&mut engine, "uw"), "ư");
+
+    // Key 'w' alone must NOT turn into 'ư' (unlike standard Telex)
+    assert_eq!(type_word(&mut engine, "w"), "w");
+    assert_eq!(type_word(&mut engine, "W"), "W");
+
+    // Brackets '[' and ']' must NOT be recognized as input method keys (unlike standard Telex)
+    assert!(!engine.can_process_key('['));
+    assert!(!engine.can_process_key(']'));
+}
+
 // ===== Encoder Tests =====
 
 use buffalo_core::{CharsetEncoding, encode};

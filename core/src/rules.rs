@@ -136,6 +136,21 @@ lazy_static::lazy_static! {
         telex.insert("{", "__Ơ");
         m.insert("Telex", telex);
 
+        // Simple Telex Layout
+        let mut simple_telex = HashMap::new();
+        simple_telex.insert("z", "XoaDauThanh");
+        simple_telex.insert("s", "DauSac");
+        simple_telex.insert("f", "DauHuyen");
+        simple_telex.insert("r", "DauHoi");
+        simple_telex.insert("x", "DauNga");
+        simple_telex.insert("j", "DauNang");
+        simple_telex.insert("a", "A_Â");
+        simple_telex.insert("e", "E_Ê");
+        simple_telex.insert("o", "O_Ô");
+        simple_telex.insert("w", "UOA_ƯƠĂ");
+        simple_telex.insert("d", "D_Đ");
+        m.insert("Simple Telex", simple_telex);
+
         // VNI Layout
         let mut vni = HashMap::new();
         vni.insert("0", "XoaDauThanh");

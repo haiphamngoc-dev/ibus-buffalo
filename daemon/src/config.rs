@@ -9,12 +9,8 @@ use std::fs;
 pub struct Config {
     /// Active input method name (e.g. "Telex", "VNI", "English").
     pub input_method: String,
-    /// Default input mode (pre-edit, surrounding text, etc.).
-    pub default_input_mode: i32,
     /// Compilation and processing flags for the engine.
     pub flags: u32,
-    /// Mapping of window classes to specific input modes.
-    pub input_mode_mapping: HashMap<String, i32>,
     /// Stored active Vietnamese typing layout (Telex or VNI) used when toggling back from English mode.
     pub vietnamese_layout: String,
     /// Output charset encoding (e.g., "Unicode", "TCVN3", "VNI", "VIQR").
@@ -27,9 +23,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             input_method: "Telex".to_string(),
-            default_input_mode: 1, // PREEDIT_IM
             flags: ESTD_FLAGS,
-            input_mode_mapping: HashMap::new(),
             vietnamese_layout: "Telex".to_string(),
             charset: "Unicode".to_string(),
             enable_macro: false,

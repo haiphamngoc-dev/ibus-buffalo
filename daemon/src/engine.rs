@@ -12,8 +12,7 @@ use crate::dbus_types::{get_prop_list, new_ibus_text};
 use crate::utils::{
     IBUS_BACKSPACE, IBUS_CONTROL_MASK, IBUS_ESCAPE, IBUS_HYPER_MASK, IBUS_LOCK_MASK,
     IBUS_META_MASK, IBUS_MOD1_MASK, IBUS_MOD4_MASK, IBUS_RELEASE_MASK, IBUS_RETURN,
-    IBUS_SUPER_MASK, IBUS_TAB, PREEDIT_IM, SURROUNDING_TEXT_IM, get_focus_window_class,
-    get_offset_runes, get_ui_executable_path, is_backspace_mode, is_modifier_key,
+    IBUS_SUPER_MASK, IBUS_TAB, get_focus_window_class, get_ui_executable_path, is_modifier_key,
 };
 
 /// The main IBus Engine instance managing state, input method engine, active window tracking,
@@ -23,8 +22,6 @@ pub struct IBusEngine {
     pub engine: Mutex<Engine>,
     /// The class name of the currently focused window.
     pub wm_class: Mutex<String>,
-    /// The last committed text, used for offset calculations.
-    pub last_text: Mutex<String>,
 }
 
 impl IBusEngine {
@@ -33,7 +30,6 @@ impl IBusEngine {
         Self {
             engine: Mutex::new(engine),
             wm_class: Mutex::new(String::new()),
-            last_text: Mutex::new(String::new()),
         }
     }
 }
@@ -79,8 +75,6 @@ impl IBusEngine {
                 *current_wm = wm;
                 let mut engine = self.engine.lock().unwrap();
                 engine.reset();
-                let mut lt = self.last_text.lock().unwrap();
-                lt.clear();
             }
         }
 
@@ -95,7 +89,7 @@ impl IBusEngine {
 
     /// D-Bus method invoked to reset the engine state.
     async fn reset(&self, #[zbus(signal_emitter)] signal_emitter: SignalEmitter<'_>) {
-        self.commit_and_reset(&signal_emitter, PREEDIT_IM).await;
+        self.commit_and_reset(&signal_emitter).await;
     }
 
     /// D-Bus methods required by IBus Engine interface but not actively implemented.
@@ -134,13 +128,6 @@ impl IBusEngine {
                 let im = &prop_name["InputMethod::".len()..];
                 config.input_method = im.to_string();
                 let _ = save_config(&config);
-            }
-        } else if prop_name.starts_with("InputMode::") {
-            if prop_state == 1 {
-                if let Ok(mode_val) = prop_name["InputMode::".len()..].parse::<i32>() {
-                    config.default_input_mode = mode_val;
-                    let _ = save_config(&config);
-                }
             }
         } else if prop_name.starts_with("Charset::") {
             if prop_state == 1 {
@@ -260,23 +247,10 @@ impl IBusEngine {
             return false;
         }
 
-        let mut input_mode = _config.default_input_mode;
-        {
-            let wm_class = self.wm_class.lock().unwrap();
-            if is_terminal_app(&wm_class) {
-                input_mode = PREEDIT_IM;
-            } else if let Some(&mode) = _config.input_mode_mapping.get(&*wm_class) {
-                input_mode = mode;
-            }
-        }
-        if input_mode != PREEDIT_IM && input_mode != SURROUNDING_TEXT_IM {
-            input_mode = PREEDIT_IM;
-        }
         let charset =
             CharsetEncoding::from_str(&_config.charset).unwrap_or(CharsetEncoding::Unicode);
         debug_println!(
-            "--> handle_key: input_mode={}, config.input_method='{}', charset='{}'",
-            input_mode,
+            "--> handle_key: config.input_method='{}', charset='{}'",
             _config.input_method,
             _config.charset
         );
@@ -293,22 +267,22 @@ impl IBusEngine {
 
         if has_modifiers {
             debug_println!("--> handle_key ignored (has modifiers: state={:#x})", state);
-            self.commit_and_reset(signal_emitter, input_mode).await;
+            self.commit_and_reset(signal_emitter).await;
             return false;
         }
 
         if keyval == IBUS_BACKSPACE {
             debug_println!("--> handle_key: Backspace");
-            return self.handle_backspace(signal_emitter, input_mode).await;
+            return self.handle_backspace(signal_emitter).await;
         }
         if keyval == IBUS_RETURN || keyval == IBUS_ESCAPE {
             debug_println!("--> handle_key: Return/Escape");
-            self.commit_and_reset(signal_emitter, input_mode).await;
+            self.commit_and_reset(signal_emitter).await;
             return false;
         }
         if keyval == IBUS_TAB {
             debug_println!("--> handle_key: Tab");
-            self.commit_and_reset(signal_emitter, input_mode).await;
+            self.commit_and_reset(signal_emitter).await;
             return false;
         }
 
@@ -318,50 +292,35 @@ impl IBusEngine {
             if let Some(c) = char::from_u32(keyval) {
                 if c.is_control() {
                     debug_println!("--> handle_key: control character '{:?}'", c);
-                    self.commit_and_reset(signal_emitter, input_mode).await;
+                    self.commit_and_reset(signal_emitter).await;
                     return false;
                 }
 
-                let (can_process, old_text, new_text) = {
+                let (can_process, new_text) = {
                     let mut engine = self.engine.lock().unwrap();
                     if engine.can_process_key(c) {
-                        let old = engine.get_processed_string(VIETNAMESE_MODE);
                         engine.process_key(c, VIETNAMESE_MODE);
                         let new = engine.get_processed_string(VIETNAMESE_MODE);
-                        debug_println!("--> engine processed key '{}': '{}' -> '{}'", c, old, new);
-                        (true, old, new)
+                        debug_println!("--> engine processed key '{}': new='{}'", c, new);
+                        (true, new)
                     } else {
                         debug_println!("--> engine cannot process key '{}'", c);
-                        (false, String::new(), String::new())
+                        (false, String::new())
                     }
                 };
 
                 if can_process {
                     let encoded_new = encode(&charset, &new_text);
-                    if is_backspace_mode(input_mode) {
-                        let encoded_old = encode(&charset, &old_text);
-                        let (suffix, n_bs) = get_offset_runes(&encoded_new, &encoded_old);
-                        debug_println!("--> is_backspace_mode: suffix='{}', n_bs={}", suffix, n_bs);
-                        Self::send_backspace(signal_emitter, input_mode, n_bs).await;
-                        if !suffix.is_empty() {
-                            let ibus_text = new_ibus_text(&suffix);
-                            debug_println!("--> committing suffix: '{}'", suffix);
-                            let _ = Self::commit_text(signal_emitter, Value::from(ibus_text)).await;
-                        }
-                        let mut lt = self.last_text.lock().unwrap();
-                        *lt = encoded_new;
-                    } else {
-                        debug_println!("--> updating preedit: '{}'", encoded_new);
-                        let ibus_text = new_ibus_text(&encoded_new);
-                        let _ = Self::update_preedit_text(
-                            signal_emitter,
-                            Value::from(ibus_text),
-                            encoded_new.chars().count() as u32,
-                            true,
-                            1,
-                        )
-                        .await;
-                    }
+                    debug_println!("--> updating preedit: '{}'", encoded_new);
+                    let ibus_text = new_ibus_text(&encoded_new);
+                    let _ = Self::update_preedit_text(
+                        signal_emitter,
+                        Value::from(ibus_text),
+                        encoded_new.chars().count() as u32,
+                        true,
+                        1,
+                    )
+                    .await;
                     return true;
                 } else if is_word_break_symbol(c) {
                     debug_println!("--> is_word_break_symbol: '{}'", c);
@@ -373,56 +332,33 @@ impl IBusEngine {
                     };
 
                     let mut final_text = old_text.clone();
-                    let mut is_macro = false;
                     if _config.enable_macro {
                         let macro_table = crate::config::load_macro_table();
                         if let Some(replaced) = macro_table.get(&old_text) {
                             final_text = replaced.clone();
-                            is_macro = true;
                         }
                     }
 
                     let encoded_final = encode(&charset, &final_text);
                     let committed = format!("{}{}", encoded_final, c);
 
-                    if is_backspace_mode(input_mode) {
-                        if is_macro {
-                            let encoded_old = encode(&charset, &old_text);
-                            let old_len = encoded_old.chars().count();
-                            debug_println!("--> macro replacement backspaces: {}", old_len);
-                            Self::send_backspace(signal_emitter, input_mode, old_len).await;
-                            let ibus_text = new_ibus_text(&committed);
-                            let _ = Self::commit_text(signal_emitter, Value::from(ibus_text)).await;
-                        } else {
-                            debug_println!("--> backspace_mode committing: '{}'", c);
-                            let ibus_text = new_ibus_text(&c.to_string());
-                            let _ = Self::commit_text(signal_emitter, Value::from(ibus_text)).await;
-                        }
-                        let mut lt = self.last_text.lock().unwrap();
-                        lt.clear();
-                    } else {
-                        debug_println!("--> committing final word: '{}'", committed);
-                        let ibus_text = new_ibus_text(&committed);
-                        let _ = Self::commit_text(signal_emitter, Value::from(ibus_text)).await;
-                        let _ = Self::hide_preedit_text(signal_emitter).await;
-                    }
+                    debug_println!("--> committing final word: '{}'", committed);
+                    let ibus_text = new_ibus_text(&committed);
+                    let _ = Self::commit_text(signal_emitter, Value::from(ibus_text)).await;
+                    let _ = Self::hide_preedit_text(signal_emitter).await;
                     return true;
                 }
             }
         }
 
         debug_println!("--> handle_key fallback: commit_and_reset and returning false");
-        self.commit_and_reset(signal_emitter, input_mode).await;
+        self.commit_and_reset(signal_emitter).await;
         false
     }
 
     /// Internal handler to process the Backspace keystroke.
     /// Returns true if handled by removing characters from the preedit buffer.
-    pub async fn handle_backspace(
-        &self,
-        signal_emitter: &SignalEmitter<'_>,
-        input_mode: i32,
-    ) -> bool {
+    pub async fn handle_backspace(&self, signal_emitter: &SignalEmitter<'_>) -> bool {
         let (preedit_is_empty, new_text) = {
             let mut engine = self.engine.lock().unwrap();
             let preedit = engine.get_processed_string(VIETNAMESE_MODE);
@@ -444,30 +380,24 @@ impl IBusEngine {
             CharsetEncoding::from_str(&config.charset).unwrap_or(CharsetEncoding::Unicode);
         let encoded_text = encode(&charset, &new_text);
 
-        if is_backspace_mode(input_mode) {
-            let mut lt = self.last_text.lock().unwrap();
-            *lt = encoded_text;
-            false
+        if encoded_text.is_empty() {
+            let _ = Self::hide_preedit_text(signal_emitter).await;
         } else {
-            if encoded_text.is_empty() {
-                let _ = Self::hide_preedit_text(signal_emitter).await;
-            } else {
-                let ibus_text = new_ibus_text(&encoded_text);
-                let _ = Self::update_preedit_text(
-                    signal_emitter,
-                    Value::from(ibus_text),
-                    encoded_text.chars().count() as u32,
-                    true,
-                    1,
-                )
-                .await;
-            }
-            true
+            let ibus_text = new_ibus_text(&encoded_text);
+            let _ = Self::update_preedit_text(
+                signal_emitter,
+                Value::from(ibus_text),
+                encoded_text.chars().count() as u32,
+                true,
+                1,
+            )
+            .await;
         }
+        true
     }
 
     /// Commits any active preedit buffer to the client application and resets the engine.
-    pub async fn commit_and_reset(&self, signal_emitter: &SignalEmitter<'_>, input_mode: i32) {
+    pub async fn commit_and_reset(&self, signal_emitter: &SignalEmitter<'_>) {
         let preedit = {
             let mut engine = self.engine.lock().unwrap();
             let preedit = engine.get_processed_string(VIETNAMESE_MODE);
@@ -476,45 +406,13 @@ impl IBusEngine {
         };
 
         if !preedit.is_empty() {
-            if is_backspace_mode(input_mode) {
-                let mut lt = self.last_text.lock().unwrap();
-                lt.clear();
-            } else {
-                let config = load_config();
-                let charset =
-                    CharsetEncoding::from_str(&config.charset).unwrap_or(CharsetEncoding::Unicode);
-                let encoded = encode(&charset, &preedit);
-                let ibus_text = new_ibus_text(&encoded);
-                let _ = Self::commit_text(signal_emitter, Value::from(ibus_text)).await;
-                let _ = Self::hide_preedit_text(signal_emitter).await;
-            }
-        }
-    }
-
-    /// Simulates sending Backspace commands depending on the active input mode.
-    pub async fn send_backspace(signal_emitter: &SignalEmitter<'_>, im_mode: i32, n: usize) {
-        if n == 0 {
-            return;
-        }
-        debug_println!("--> send_backspace: mode={}, n={}", im_mode, n);
-        match im_mode {
-            SURROUNDING_TEXT_IM => {
-                let _ = Self::delete_surrounding_text(signal_emitter, -(n as i32), n as u32).await;
-            }
-            _ => {}
+            let config = load_config();
+            let charset =
+                CharsetEncoding::from_str(&config.charset).unwrap_or(CharsetEncoding::Unicode);
+            let encoded = encode(&charset, &preedit);
+            let ibus_text = new_ibus_text(&encoded);
+            let _ = Self::commit_text(signal_emitter, Value::from(ibus_text)).await;
+            let _ = Self::hide_preedit_text(signal_emitter).await;
         }
     }
 }
-
-fn is_terminal_app(wm_class: &str) -> bool {
-    let wm_lower = wm_class.to_lowercase();
-    wm_lower.contains("terminal")
-        || wm_lower == "alacritty"
-        || wm_lower == "kitty"
-        || wm_lower == "wezterm"
-        || wm_lower == "konsole"
-        || wm_lower == "xterm"
-        || wm_lower == "uxterm"
-        || wm_lower == "tilix"
-}
-

@@ -33,11 +33,6 @@ pub const IBUS_RETURN: u32 = 0xff0d;
 /// Key code representing the Escape key.
 pub const IBUS_ESCAPE: u32 = 0xff1b;
 
-/// Preedit Input Mode: show composition inline with underlining.
-pub const PREEDIT_IM: i32 = 1;
-/// Surrounding Text Input Mode: edit surrounding characters directly.
-pub const SURROUNDING_TEXT_IM: i32 = 2;
-
 /// Retrieves the unique machine ID from `/var/lib/dbus/machine-id` or `/etc/machine-id`.
 /// Returns an empty string if it cannot be read.
 pub fn get_local_machine_id() -> String {
@@ -102,36 +97,9 @@ pub fn get_ibus_address() -> Option<String> {
     None
 }
 
-/// Determines whether the input mode uses simulated backspace inputs to edit text.
-pub fn is_backspace_mode(im: i32) -> bool {
-    im == SURROUNDING_TEXT_IM
-}
-
 /// Returns true if the key event represents a modifier key (Shift, Ctrl, Alt, Super, etc.).
 pub fn is_modifier_key(keyval: u32) -> bool {
     (keyval >= 0xffe1 && keyval <= 0xffee) || keyval == 0xfe03 || keyval == 0xff7e
-}
-
-/// Calculates the suffix to append and the number of backspaces needed to transition
-/// from `old_text` to `new_text`.
-pub fn get_offset_runes(new_text: &str, old_text: &str) -> (String, usize) {
-    let mut new_chars = new_text.chars();
-    let mut old_chars = old_text.chars();
-    let mut common_prefix_len = 0;
-
-    loop {
-        match (new_chars.next(), old_chars.next()) {
-            (Some(n), Some(o)) if n == o => {
-                common_prefix_len += 1;
-            }
-            _ => break,
-        }
-    }
-
-    let n_backspace = old_text.chars().count() - common_prefix_len;
-    let suffix: String = new_text.chars().skip(common_prefix_len).collect();
-
-    (suffix, n_backspace)
 }
 
 /// Helper to determine the path of the UI executable.

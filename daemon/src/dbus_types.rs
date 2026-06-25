@@ -1,5 +1,4 @@
 use crate::config::Config;
-use crate::utils::{PREEDIT_IM, SURROUNDING_TEXT_IM};
 use buffalo_core::CharsetEncoding;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -215,43 +214,6 @@ pub fn get_prop_list(config: &Config) -> IBusPropList {
         }),
     );
     properties.push(OwnedValue::try_from(im_menu).unwrap());
-
-    // Input mode submenu (Cơ chế gõ)
-    let mut mode_subprops = Vec::new();
-    let modes = vec![
-        (PREEDIT_IM, "Preedit"),
-        (SURROUNDING_TEXT_IM, "Surrounding Text"),
-    ];
-    for (mode_val, mode_label) in modes {
-        let state = if config.default_input_mode == mode_val {
-            1
-        } else {
-            0
-        };
-        let prop = new_ibus_property(
-            &format!("InputMode::{}", mode_val),
-            2,
-            mode_label,
-            "",
-            state,
-            None,
-        );
-        mode_subprops.push(OwnedValue::try_from(prop).unwrap());
-    }
-    let mode_menu = new_ibus_property(
-        "input_mode_menu",
-        3,
-        "Cơ chế gõ",
-        "input-keyboard",
-        0,
-        Some(IBusPropList {
-            name: "IBusPropList".to_string(),
-            attachments: HashMap::new(),
-            properties: mode_subprops,
-        }),
-    );
-    properties.push(OwnedValue::try_from(mode_menu).unwrap());
-
     // Charset encoding submenu
     let mut charset_subprops = Vec::new();
     for cs in CharsetEncoding::all() {

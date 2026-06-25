@@ -1,7 +1,4 @@
-use ibus_buffalo::{
-    PREEDIT_IM, SURROUNDING_TEXT_IM, get_offset_runes, is_backspace_mode, is_modifier_key,
-    load_config, load_macro_table, new_ibus_text, save_config,
-};
+use ibus_buffalo::{is_modifier_key, load_config, load_macro_table, new_ibus_text, save_config};
 
 #[test]
 fn test_is_modifier_key() {
@@ -16,30 +13,6 @@ fn test_is_modifier_key() {
     assert!(!is_modifier_key(0x0061)); // a
     assert!(!is_modifier_key(0xff08)); // Backspace
     assert!(!is_modifier_key(0xff0d)); // Return
-}
-
-#[test]
-fn test_is_backspace_mode() {
-    assert!(!is_backspace_mode(PREEDIT_IM));
-    assert!(is_backspace_mode(SURROUNDING_TEXT_IM));
-}
-
-#[test]
-fn test_get_offset_runes() {
-    // Appending characters
-    let (suffix, n_bs) = get_offset_runes("hello", "hell");
-    assert_eq!(suffix, "o");
-    assert_eq!(n_bs, 0);
-
-    // Deleting characters
-    let (suffix, n_bs) = get_offset_runes("he", "hello");
-    assert_eq!(suffix, "");
-    assert_eq!(n_bs, 3);
-
-    // Modifying/replacing characters
-    let (suffix, n_bs) = get_offset_runes("hallo", "hello");
-    assert_eq!(suffix, "allo");
-    assert_eq!(n_bs, 4);
 }
 
 #[test]

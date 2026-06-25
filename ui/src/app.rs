@@ -1,5 +1,5 @@
 use buffalo_core::{CharsetEncoding, EAUTO_CORRECT_ENABLED, EFREE_TONE_MARKING, ESTD_TONE_STYLE};
-use ibus_buffalo::{Config, PREEDIT_IM, SURROUNDING_TEXT_IM, load_config, save_config};
+use ibus_buffalo::{Config, load_config, save_config};
 use relm4::gtk::gdk;
 use relm4::gtk::prelude::*;
 use relm4::prelude::*;
@@ -20,8 +20,6 @@ pub enum Msg {
     CharsetChanged(u32),
     /// Triggered when the user selects a different input method (e.g., Telex, VNI) from the combo box.
     InputMethodChanged(u32),
-    /// Triggered when the user selects a different input mode from the combo box.
-    InputModeChanged(u32),
     /// Triggered when a checkbox for an engine flag is toggled.
     ToggleFlag(u32, bool),
     /// Triggered when the shorthand checkbox is toggled.
@@ -117,31 +115,6 @@ impl SimpleComponent for App {
                             connect_changed[sender] => move |combo| {
                                 let idx = combo.active().unwrap_or(0);
                                 sender.input(Msg::InputMethodChanged(idx));
-                            }
-                        },
-
-                        // Row 2: Cơ chế gõ
-                        attach[0, 2, 1, 1] = &gtk::Label {
-                            set_text: "Cơ chế gõ:",
-                            set_xalign: 0.0,
-                            add_css_class: "field-label",
-                        },
-
-                        #[name = "mode_combo"]
-                        attach[1, 2, 1, 1] = &gtk::ComboBoxText {
-                            set_hexpand: true,
-                            append_text: "Preedit",
-                            append_text: "Surrounding Text",
-
-                            set_active: Some(match model.config.default_input_mode {
-                                PREEDIT_IM => 0,
-                                SURROUNDING_TEXT_IM => 1,
-                                _ => 0,
-                            }),
-
-                            connect_changed[sender] => move |combo| {
-                                let idx = combo.active().unwrap_or(0);
-                                sender.input(Msg::InputModeChanged(idx));
                             }
                         },
                     }
@@ -286,15 +259,7 @@ impl SimpleComponent for App {
                 self.config.input_method = im.to_string();
                 let _ = save_config(&self.config);
             }
-            Msg::InputModeChanged(idx) => {
-                let mode = match idx {
-                    0 => PREEDIT_IM,
-                    1 => SURROUNDING_TEXT_IM,
-                    _ => PREEDIT_IM,
-                };
-                self.config.default_input_mode = mode;
-                let _ = save_config(&self.config);
-            }
+
             Msg::ToggleFlag(flag, active) => {
                 if active {
                     self.config.flags |= flag;
